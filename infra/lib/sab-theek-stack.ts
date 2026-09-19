@@ -12,9 +12,16 @@ import * as tasks from 'aws-cdk-lib/aws-stepfunctions-tasks';
 import * as apigw from 'aws-cdk-lib/aws-apigatewayv2';
 import { HttpLambdaIntegration } from 'aws-cdk-lib/aws-apigatewayv2-integrations';
 
-/** Bedrock model for the daily sentence. Summaries fall back to a template if it is unavailable. */
+/**
+ * Nova Lite writes the daily sentence. Chosen over Anthropic-on-Bedrock because
+ * it needs no use-case form on a fresh account, and because one short sentence
+ * per person per day does not need a frontier model.
+ *
+ * Summaries fall back to a deterministic template whenever Bedrock is
+ * unreachable or throttled, so a day always gets its sentence.
+ */
 const BEDROCK_MODEL_ID =
-  process.env.BEDROCK_MODEL_ID ?? 'us.anthropic.claude-3-5-haiku-20241022-v1:0';
+  process.env.BEDROCK_MODEL_ID ?? 'us.amazon.nova-lite-v1:0';
 
 /** Real escalations wait twenty minutes a rung. The demo passes its own value per execution. */
 const STEP_WAIT_SECONDS = '1200';
