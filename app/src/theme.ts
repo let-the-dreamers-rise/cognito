@@ -10,6 +10,7 @@ export const colors = {
   hairline: '#E8E0D4',
   calm: '#2E6B4F',
   checking: '#B4762A',
+  critical: '#A32020',
   quiet: '#8A8078',
 };
 
@@ -30,5 +31,9 @@ export const type = {
   },
 };
 
-export const statusColor = (status?: string) =>
-  status === 'normal' ? colors.calm : status === 'checking' ? colors.checking : colors.quiet;
+export const statusColor = (status?: string) => {
+  if (status === 'normal') return colors.calm;
+  if (status === 'critical') return colors.critical;
+  if (status === 'checking') return colors.checking;
+  return colors.quiet;
+};

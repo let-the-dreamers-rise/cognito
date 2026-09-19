@@ -83,12 +83,31 @@ export default function ChildHome() {
           <View style={[s.dot, { backgroundColor: statusColor(pulse?.status) }]} />
         </View>
 
-        {/* The whole product is this sentence. Everything under it is secondary. */}
-        <Text style={[type.hero, s.headline]}>
-          {error ?? pulse?.today ?? pulse?.pulse ?? 'No word yet today.'}
+        {/* The whole product is this sentence. Everything under it is secondary.
+            On an ordinary day it reassures; when something is wrong it says so
+            plainly and takes over the screen. */}
+        <Text
+          style={[
+            type.hero,
+            s.headline,
+            pulse?.critical && s.criticalHeadline,
+          ]}
+        >
+          {error ?? pulse?.concern ?? pulse?.today ?? pulse?.pulse ?? 'No word yet today.'}
         </Text>
 
-        {pulse?.today && <Text style={[type.body, s.sub]}>{pulse.pulse}</Text>}
+        {(pulse?.today || pulse?.concern) && (
+          <Text style={[type.body, s.sub]}>{pulse.pulse}</Text>
+        )}
+
+        {pulse?.critical && (
+          <View style={s.criticalCard}>
+            <Text style={[type.body, s.criticalText]}>
+              We have already tried her phone and had no answer, and the neighbour you
+              registered has been sent a message. Please call her now.
+            </Text>
+          </View>
+        )}
 
         {pulse?.learning && (
           <View style={s.learning}>
@@ -142,12 +161,30 @@ export default function ChildHome() {
               style={s.demoBtn}
               onPress={() =>
                 runDemo(async () => {
-                  await triggerQuietMorning(session.memberId, session.deviceToken, 12);
-                  return 'A quiet morning is running. Watch the parent phone get asked first.';
+                  await triggerQuietMorning(session.memberId, session.deviceToken, 'late', 12);
+                  return 'A quiet morning is running. She gets asked first, twice.';
                 })
               }
             >
               <Text style={s.demoBtnText}>Run a quiet morning</Text>
+            </Pressable>
+            <Pressable
+              style={[s.demoBtn, s.demoBtnCritical]}
+              onPress={() =>
+                runDemo(async () => {
+                  await triggerQuietMorning(
+                    session.memberId,
+                    session.deviceToken,
+                    'critical48',
+                    5
+                  );
+                  return 'Two days of silence. No polite rungs - family and neighbour at once.';
+                })
+              }
+            >
+              <Text style={[s.demoBtnText, s.demoBtnCriticalText]}>
+                Run two days of silence
+              </Text>
             </Pressable>
             {demoNote && <Text style={type.small}>{demoNote}</Text>}
           </View>
@@ -179,7 +216,17 @@ const s = StyleSheet.create({
   headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   dot: { width: 10, height: 10, borderRadius: 5 },
   headline: { marginTop: space.md },
+  criticalHeadline: { color: colors.critical, fontWeight: '600' },
   sub: { color: colors.muted, marginTop: space.sm },
+  criticalCard: {
+    marginTop: space.md,
+    padding: space.md,
+    borderRadius: 16,
+    backgroundColor: '#FCEDED',
+    borderWidth: 1,
+    borderColor: '#F0C9C9',
+  },
+  criticalText: { color: '#7A1A1A' },
   learning: {
     marginTop: space.md,
     padding: space.sm,
@@ -225,4 +272,6 @@ const s = StyleSheet.create({
     alignItems: 'center',
   },
   demoBtnText: { color: colors.ink, fontSize: 15, fontWeight: '600' },
+  demoBtnCritical: { borderColor: '#F0C9C9', backgroundColor: '#FCEDED' },
+  demoBtnCriticalText: { color: '#7A1A1A' },
 });

@@ -72,17 +72,26 @@ export async function handler(event) {
   );
 
   const waking = accepted.filter(isWakingSignal);
-  const latest = accepted.reduce(
+
+  // Two clocks, deliberately separate. lastSeenAt proves the phone is alive;
+  // lastWakingAt proves a person is. A phone that keeps checking in while
+  // nobody touches it is the case that matters most, and only the second
+  // clock can see it.
+  const latestAny = accepted.reduce(
     (max, s) => (s.at > max ? s.at : max),
     member.lastSeenAt ?? ""
+  );
+  const latestWaking = waking.reduce(
+    (max, s) => (s.at > max ? s.at : max),
+    member.lastWakingAt ?? ""
   );
 
   await doc.send(
     new UpdateCommand({
       TableName: TABLE,
       Key: memberKey(memberId),
-      UpdateExpression: "SET lastSeenAt = :l",
-      ExpressionAttributeValues: { ":l": latest },
+      UpdateExpression: "SET lastSeenAt = :l, lastWakingAt = :w",
+      ExpressionAttributeValues: { ":l": latestAny, ":w": latestWaking },
     })
   );
 

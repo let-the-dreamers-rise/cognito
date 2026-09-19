@@ -8,43 +8,46 @@ import {
 } from "./shared/db.mjs";
 import { localMinutes, startOfLocalDay } from "./shared/time.mjs";
 import { expectedByMinutes, firstWakingSignal } from "./shared/baseline.mjs";
+import { assess, waitSecondsFor, isCritical, describe } from "./shared/severity.mjs";
 
 const sfn = new SFNClient({});
 const LADDER_ARN = process.env.LADDER_ARN;
-const STEP_WAIT_SECONDS = Number(process.env.STEP_WAIT_SECONDS ?? 1200);
 
 /**
- * Runs on a fixed interval and asks one question per person: by now, on an
- * ordinary day for this particular person, would we have heard something?
+ * Runs on a fixed interval and asks one question per person: given what we know
+ * of this particular person, is anything wrong right now?
  *
- * Nothing here reacts to an event. The whole system turns on the absence of one,
- * which is why it needs a clock rather than a handler.
+ * Nothing here reacts to an event. The whole system turns on the absence of
+ * one, which is why it needs a clock rather than a handler.
  */
 async function evaluate(member) {
   const now = new Date();
   const tz = member.tz;
 
-  if (member.travelUntil && member.travelUntil > now.toISOString()) {
-    return { memberId: member.memberId, skipped: "travel mode" };
-  }
-
-  const expectedBy = expectedByMinutes(member.baseline);
-  if (expectedBy == null) {
-    return { memberId: member.memberId, skipped: "still learning routine" };
-  }
-
-  const nowMinutes = localMinutes(now, tz);
-  if (nowMinutes < Math.min(expectedBy, 1439)) {
-    return { memberId: member.memberId, skipped: "too early to worry" };
-  }
+  // Travel mode is suspended for the long silences. A trip explains a late
+  // morning; it does not explain two days without touching a phone.
+  const travelling = member.travelUntil && member.travelUntil > now.toISOString();
 
   const signals = await recentSignals(member.memberId, startOfLocalDay(now, tz));
-  if (firstWakingSignal(signals, tz)) {
-    return { memberId: member.memberId, skipped: "already up today" };
+  const severity = assess({
+    member,
+    now,
+    expectedBy: expectedByMinutes(member.baseline),
+    nowMinutes: localMinutes(now, tz),
+    sawWakingToday: Boolean(firstWakingSignal(signals, tz)),
+  });
+
+  if (!severity) return { memberId: member.memberId, skipped: "nothing wrong" };
+  if (travelling && !isCritical(severity)) {
+    return { memberId: member.memberId, skipped: "travel mode", severity };
   }
 
-  if (await openIncident(member.memberId)) {
-    return { memberId: member.memberId, skipped: "already checking" };
+  const existing = await openIncident(member.memberId);
+
+  // An open incident is not a reason to stay quiet if things have got worse.
+  // A late morning that becomes a two-day silence must be raised again.
+  if (existing && !isWorse(severity, existing.severity)) {
+    return { memberId: member.memberId, skipped: "already checking", severity };
   }
 
   const incidentId = randomUUID();
@@ -54,8 +57,10 @@ async function evaluate(member) {
     incidentId,
     memberId: member.memberId,
     status: "open",
-    reason: "no activity by the usual time",
-    expectedByMinutes: expectedBy,
+    severity,
+    reason: describe(severity, member.name),
+    lastWakingAt: member.lastWakingAt ?? null,
+    lastSeenAt: member.lastSeenAt ?? null,
     openedAt: now.toISOString(),
   });
 
@@ -66,13 +71,18 @@ async function evaluate(member) {
       input: JSON.stringify({
         memberId: member.memberId,
         incidentId,
-        waitSeconds: STEP_WAIT_SECONDS,
+        severity,
+        waitSeconds: waitSecondsFor(severity),
       }),
     })
   );
 
-  return { memberId: member.memberId, opened: incidentId };
+  return { memberId: member.memberId, opened: incidentId, severity };
 }
+
+const RANK = ["late", "silent12", "deviceDark", "critical24", "critical48"];
+const isWorse = (next, current) =>
+  RANK.indexOf(next) > RANK.indexOf(current ?? "late");
 
 export async function handler() {
   const parents = await listParents();

@@ -12,10 +12,15 @@ export type Pulse = {
   name: string;
   pulse: string;
   lastSeenAt: string | null;
+  lastWakingAt: string | null;
+  /** Null on an ordinary day. The screen stays quiet unless there is something to say. */
+  concern: string | null;
+  severity: string | null;
+  critical: boolean;
   firstActivityAt: string | null;
   steps: number;
   today: string | null;
-  status: 'normal' | 'checking' | 'quiet';
+  status: 'normal' | 'checking' | 'quiet' | 'critical';
   learning: boolean;
   learningProgress: string;
   usuallyUpBy: string | null;
@@ -70,9 +75,14 @@ export const updateSettings = (memberId: string, token: string, patch: Record<st
 export const seedBaseline = (memberId: string, token: string) =>
   call<{ seeded: number }>('/demo/seed', { method: 'POST', body: { memberId }, token });
 
-export const triggerQuietMorning = (memberId: string, token: string, waitSeconds = 12) =>
+export const triggerQuietMorning = (
+  memberId: string,
+  token: string,
+  severity = 'late',
+  waitSeconds = 12
+) =>
   call<{ incidentId: string }>('/demo/anomaly', {
     method: 'POST',
-    body: { memberId, waitSeconds },
+    body: { memberId, severity, waitSeconds },
     token,
   });

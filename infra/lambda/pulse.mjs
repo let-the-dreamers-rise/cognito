@@ -16,6 +16,7 @@ import {
   isLearning,
   MIN_SAMPLES,
 } from "./shared/baseline.mjs";
+import { describe, isCritical } from "./shared/severity.mjs";
 
 const minutesAgo = (iso) =>
   iso ? Math.round((Date.now() - new Date(iso).getTime()) / 60_000) : null;
@@ -76,12 +77,24 @@ export async function handler(event) {
   return ok({
     name: member.name,
     // The watcher gets a sentence and a verdict. Never the raw signal list.
-    pulse: phrase(minutesAgo(member.lastSeenAt)),
+    pulse: phrase(minutesAgo(member.lastWakingAt ?? member.lastSeenAt)),
     lastSeenAt: member.lastSeenAt ?? null,
+    lastWakingAt: member.lastWakingAt ?? null,
+    // Null on an ordinary day. The screen stays quiet unless there is something
+    // to say, which is the entire point of the product.
+    concern: incident ? describe(incident.severity, member.name) : null,
+    severity: incident?.severity ?? null,
+    critical: incident ? isCritical(incident.severity) : false,
     firstActivityAt: first ? formatLocalTime(first.at, tz) : null,
     steps,
     today: day.Item?.narrative ?? null,
-    status: incident ? "checking" : first ? "normal" : "quiet",
+    status: incident
+      ? isCritical(incident.severity)
+        ? "critical"
+        : "checking"
+      : first
+        ? "normal"
+        : "quiet",
     learning: isLearning(member.baseline),
     learningProgress: `${member.baseline?.samples?.length ?? 0}/${MIN_SAMPLES}`,
     usuallyUpBy: expectedBy == null ? null : minutesToClock(expectedBy),

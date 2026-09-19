@@ -98,6 +98,7 @@ export class SabTheekStack extends cdk.Stack {
           action,
           memberId: sfn.JsonPath.stringAt('$.memberId'),
           incidentId: sfn.JsonPath.stringAt('$.incidentId'),
+          severity: sfn.JsonPath.stringAt('$.severity'),
         }),
         payloadResponseOnly: true,
         resultPath: sfn.JsonPath.DISCARD,
@@ -134,7 +135,13 @@ export class SabTheekStack extends cdk.Stack {
       rung('MarkEscalated', 'escalated')
     );
 
-    const definition = rung('NudgeHer', 'nudge')
+    // A day of silence is not a social situation. Above the threshold we skip
+    // the polite rungs and go straight to whoever can physically reach her.
+    const raiseAlarm = rung('AlarmTheFamily', 'notifyChild')
+      .next(rung('AlarmTheNeighbour', 'notifyLocal'))
+      .next(rung('MarkCriticalEscalated', 'escalated'));
+
+    const politeLadder = rung('NudgeHer', 'nudge')
       .next(wait('WaitAfterNudge'))
       .next(check('CheckAfterNudge'))
       .next(
@@ -154,6 +161,16 @@ export class SabTheekStack extends cdk.Stack {
             )
         )
       );
+
+    const definition = new sfn.Choice(this, 'HowSeriousIsThis')
+      .when(
+        sfn.Condition.or(
+          sfn.Condition.stringEquals('$.severity', 'critical48'),
+          sfn.Condition.stringEquals('$.severity', 'critical24')
+        ),
+        raiseAlarm
+      )
+      .otherwise(politeLadder);
 
     const ladder = new sfn.StateMachine(this, 'EscalationLadder', {
       definitionBody: sfn.DefinitionBody.fromChainable(definition),

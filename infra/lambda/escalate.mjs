@@ -8,11 +8,16 @@ import {
 } from "./shared/db.mjs";
 import { pushToExpo, sendSms } from "./shared/push.mjs";
 import { minutesToClock } from "./shared/time.mjs";
+import { describe, isCritical } from "./shared/severity.mjs";
 
 /**
- * Every rung of the ladder. The order matters more than the code: we ask her
- * first, twice, before anyone else is told anything at all. Most mornings the
- * first rung ends it and the family never learns there was a question.
+ * Every rung of the ladder. For an ordinary late morning the order matters more
+ * than the code: we ask her first, twice, and most days the first rung ends it
+ * without the family ever learning there was a question.
+ *
+ * That politeness is wrong above a threshold. A day of silence is not a social
+ * situation, so the state machine skips these rungs entirely and goes straight
+ * to the people who can physically reach her.
  */
 const RUNGS = {
   async nudge(member) {
@@ -43,37 +48,43 @@ const RUNGS = {
     return { rung: "ring" };
   },
 
-  async notifyChild(member) {
+  async notifyChild(member, severity) {
     const watchers = await watchersOf(member.memberId);
+    const critical = isCritical(severity);
     const usually =
       member.baseline?.firstActivityMedian != null
-        ? ` She's usually up by ${minutesToClock(member.baseline.firstActivityMedian)}.`
+        ? `She is usually up by ${minutesToClock(member.baseline.firstActivityMedian)}.`
         : "";
 
     await pushToExpo(
       watchers.map((w) => ({
         to: w.pushToken,
-        title: `${member.name} hasn't picked up her phone today`,
-        body: `${usually.trim()} Want to call?`.trim(),
-        data: { action: "call", memberId: member.memberId },
+        title: describe(severity, member.name),
+        body: critical
+          ? "We have already asked her and had no answer. Please call her now."
+          : `${usually} Want to call?`.trim(),
+        data: { action: "call", memberId: member.memberId, severity },
         sound: "default",
+        priority: "high",
+        // A two-day silence is allowed to wake the phone up properly.
+        channelId: critical ? "critical" : "default",
       }))
     );
-    return { rung: "notifyChild", watchers: watchers.length };
+    return { rung: "notifyChild", watchers: watchers.length, severity };
   },
 
   /**
    * The rung nobody else builds. The family is a thousand kilometres away and
    * can do nothing; the neighbour is forty feet away and can knock.
    */
-  async notifyLocal(member) {
+  async notifyLocal(member, severity) {
     const contact = member.localContact;
     const result = await sendSms(
       contact?.phone,
-      `${member.name} hasn't used her phone today and isn't answering. ` +
-        `If you are nearby, could you knock? - Sab Theek`
+      `${describe(severity, member.name)} She is not answering. ` +
+        `If you are nearby, could you knock on her door? - Sab Theek`
     );
-    return { rung: "notifyLocal", contact: contact?.name ?? null, ...result };
+    return { rung: "notifyLocal", contact: contact?.name ?? null, severity, ...result };
   },
 };
 
@@ -88,7 +99,7 @@ async function checkResponded(memberId, incidentId) {
 }
 
 export async function handler(event) {
-  const { action, memberId, incidentId } = event;
+  const { action, memberId, incidentId, severity } = event;
 
   if (action === "check") return checkResponded(memberId, incidentId);
 
@@ -97,13 +108,13 @@ export async function handler(event) {
 
   if (action === "escalated") {
     await setIncidentStatus(memberId, incidentId, "escalated");
-    return { rung: "escalated" };
+    return { rung: "escalated", severity };
   }
 
   const rung = RUNGS[action];
   if (!rung) return { error: `unknown rung: ${action}` };
 
-  const result = await rung(member);
+  const result = await rung(member, severity);
   await setIncidentStatus(memberId, incidentId, "open", { lastRung: action });
   return result;
 }

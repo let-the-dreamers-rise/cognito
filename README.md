@@ -69,12 +69,16 @@ system on AWS rather than a request-response app.
 Expo app (parent)  --heartbeat-->  API Gateway  -->  Lambda  -->  DynamoDB
                                                                      |
                        EventBridge Rule (every 10 min) --> Sweep Lambda
-                              "would we have heard something by now?"
+                                   "is anything wrong right now?"
                                                                      |
                                                       Step Functions ladder
                                                                      |
-            nudge her -> wait -> ring through -> wait -> tell family -> wait
-                                                      -> SMS the neighbour (SNS)
+                                      how serious? ------------------+
+                                            |                        |
+                              ordinary      |                        | critical
+                                            v                        v
+              nudge -> wait -> ring -> wait -> family      family + neighbour,
+                        -> wait -> SMS neighbour (SNS)     immediately, no waiting
 
        EventBridge Scheduler (21:00 Asia/Kolkata) --> Summarize Lambda --> Bedrock
                                     one warm sentence, pushed to the family
@@ -92,18 +96,44 @@ Expo app (parent)  --heartbeat-->  API Gateway  -->  Lambda  -->  DynamoDB
 | **SNS** | SMS to the local contact, who will not have the app |
 | **Amplify Hosting** | The Expo web build |
 
+### Two clocks, not one
+
+The central idea. Most of these systems track "last activity" as a single
+number, which quietly conflates two very different situations:
+
+- **`lastSeenAt`** - any signal at all. Proves the phone is on and has network.
+- **`lastWakingAt`** - a signal only a person makes. Proves someone is there.
+
+A phone that is switched off has an ordinary explanation. A phone that is on,
+charged, reporting in every five minutes, and *untouched for a day* does not.
+The second case is the more alarming one, and a single clock cannot see it.
+
+### How worried to be
+
+Severity decides how politely the system behaves, and that is the whole design.
+
+| Severity | Condition | What happens |
+|---|---|---|
+| `late` | No waking signal by her usual time + 2h grace | Ask her, twice, 20 min apart. Family only if she stays silent. |
+| `silent12` | Untouched for 12 hours | Same ladder, 10 min apart |
+| `deviceDark` | Phone off or out of signal 12h+ | Same ladder, 10 min apart |
+| `critical24` | Untouched since yesterday | **Skips the polite rungs.** Family and neighbour at once. |
+| `critical48` | Untouched for two days | **Skips the polite rungs.** Family and neighbour at once. |
+
+For an ordinary late morning, asking her first is right: most days the first
+nudge ends it and the family never learns there was a question, which is what
+stops the false-alarm spiral that kills products in this category.
+
+Above a threshold that politeness becomes wrong. **A day of silence is not a
+social situation**, so the state machine branches at the top and goes straight
+to whoever can physically reach her. An incident that gets worse re-raises
+itself rather than staying quiet because something is already open.
+
 ### The rung nobody else builds
 
 The last step is not "alert the family harder". It is an SMS to a neighbour.
 The family is a thousand kilometres away and can do nothing; the neighbour is
 forty feet away and can knock.
-
-### She is asked first, twice
-
-The ladder never opens by alarming the family. It quietly asks her, twice, and
-only silence escalates. Most mornings the first rung ends it and nobody ever
-learns there was a question. This is what stops the false-alarm death spiral
-that kills products in this category.
 
 ---
 

@@ -4,6 +4,7 @@ import { SFNClient, StartExecutionCommand } from "@aws-sdk/client-sfn";
 import { doc, TABLE, getMember, putItem, memberKey } from "./shared/db.mjs";
 import { ok, bad, parseBody, bearer } from "./shared/http.mjs";
 import { updateBaseline } from "./shared/baseline.mjs";
+import { describe } from "./shared/severity.mjs";
 
 const sfn = new SFNClient({});
 const LADDER_ARN = process.env.LADDER_ARN;
@@ -36,7 +37,7 @@ async function seedBaseline(member) {
   return { seeded: baseline.samples.length, usuallyUpAt: baseline.firstActivityMedian };
 }
 
-async function forceAnomaly(member, waitSeconds) {
+async function forceAnomaly(member, waitSeconds, severity = "late") {
   const incidentId = randomUUID();
   const now = new Date().toISOString();
 
@@ -46,7 +47,8 @@ async function forceAnomaly(member, waitSeconds) {
     incidentId,
     memberId: member.memberId,
     status: "open",
-    reason: "no activity by the usual time",
+    severity,
+    reason: describe(severity, member.name),
     openedAt: now,
     demo: true,
   });
@@ -58,6 +60,7 @@ async function forceAnomaly(member, waitSeconds) {
       input: JSON.stringify({
         memberId: member.memberId,
         incidentId,
+        severity,
         waitSeconds: waitSeconds ?? DEMO_WAIT_SECONDS,
       }),
     })
@@ -79,7 +82,7 @@ export async function handler(event) {
   try {
     if (path.endsWith("/demo/seed")) return ok(await seedBaseline(member));
     if (path.endsWith("/demo/anomaly")) {
-      return ok(await forceAnomaly(member, body.waitSeconds));
+      return ok(await forceAnomaly(member, body.waitSeconds, body.severity));
     }
     return bad(404, "unknown demo route");
   } catch (err) {
