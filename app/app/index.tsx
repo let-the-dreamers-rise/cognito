@@ -11,6 +11,7 @@ import {
 import { router } from 'expo-router';
 import { enrolParent, enrolWatcher } from '../src/api';
 import { loadSession, saveSession } from '../src/session';
+import { registerForPush } from '../src/push';
 import { colors, space, type } from '../src/theme';
 
 type Mode = 'choose' | 'parent' | 'watcher';
@@ -45,14 +46,18 @@ export default function Welcome() {
   const startAsParent = () =>
     run(async () => {
       const chosen = name.trim() || 'Amma';
-      const session = await enrolParent(chosen, null);
+      const session = await enrolParent(chosen, await registerForPush());
       await saveSession({ ...session, role: 'parent', memberName: chosen });
       router.replace('/parent');
     });
 
   const startAsWatcher = () =>
     run(async () => {
-      const session = await enrolWatcher(code.trim().toUpperCase(), name.trim() || 'Family', null);
+      const session = await enrolWatcher(
+        code.trim().toUpperCase(),
+        name.trim() || 'Family',
+        await registerForPush()
+      );
       await saveSession({ ...session, role: 'watcher' });
       router.replace('/child');
     });

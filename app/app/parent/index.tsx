@@ -4,6 +4,7 @@ import { Link, router } from 'expo-router';
 import { sendSignals } from '../../src/api';
 import { loadSession } from '../../src/session';
 import { watchForeground } from '../../src/signals';
+import { onNotificationTap } from '../../src/push';
 import type { Session } from '../../src/api';
 import { colors, space, type } from '../../src/theme';
 
@@ -29,6 +30,18 @@ export default function ParentHome() {
   useEffect(() => {
     if (!session) return;
     return watchForeground(session.memberId, session.deviceToken);
+  }, [session]);
+
+  // Tapping the nudge stands the ladder down before the family is ever told.
+  useEffect(() => {
+    if (!session) return;
+    return onNotificationTap((action) => {
+      if (action !== 'checkin') return;
+      setConfirmed(true);
+      sendSignals(session.memberId, session.deviceToken, [{ type: 'checkin' }]).catch(
+        () => {}
+      );
+    });
   }, [session]);
 
   const tap = async (kind: 'checkin' | 'callme') => {
