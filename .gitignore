@@ -8,3 +8,6 @@ cdk.out/
 .env.local
 .DS_Store
 *.log
+app/dist/
+app/dist.zip
+app/.appid

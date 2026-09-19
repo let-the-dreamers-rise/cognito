@@ -2,6 +2,7 @@ import { AppState } from 'react-native';
 import * as Battery from 'expo-battery';
 import { Pedometer } from 'expo-sensors';
 import { sendSignals } from './api';
+import { getTransactionTimestamps, isAvailable as smsAvailable } from '../modules/sab-theek-sms';
 
 type Signal = { type: string; at?: string; steps?: number };
 
@@ -31,6 +32,21 @@ export async function collect(): Promise<Signal[]> {
     }
   } catch {
     // Step counting is unavailable on web and some devices.
+  }
+
+  // A payment at 8am is the strongest waking signal there is: she got up, got
+  // dressed, walked out and spoke to someone. Only the timestamp crosses over.
+  if (smsAvailable()) {
+    try {
+      const since = new Date();
+      since.setHours(0, 0, 0, 0);
+      const stamps = await getTransactionTimestamps(since.getTime());
+      for (const ts of stamps) {
+        signals.push({ type: 'transaction', at: new Date(ts).toISOString() });
+      }
+    } catch {
+      // No permission, or not an Android build. The other signals stand alone.
+    }
   }
 
   return signals;

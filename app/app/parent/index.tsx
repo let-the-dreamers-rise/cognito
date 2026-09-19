@@ -47,7 +47,7 @@ export default function ParentHome() {
       <ScrollView contentContainerStyle={s.inner}>
         <Text style={type.label}>Sab Theek</Text>
         <Text style={[type.hero, s.headline]}>
-          {greeting()}, {session?.pairCode ? 'and good to see you' : ''}
+          {greeting()}, {session?.memberName ?? 'Amma'}
         </Text>
 
         <Text style={[type.body, s.reassure]}>

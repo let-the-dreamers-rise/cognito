@@ -44,8 +44,9 @@ export default function Welcome() {
 
   const startAsParent = () =>
     run(async () => {
-      const session = await enrolParent(name.trim() || 'Amma', null);
-      await saveSession({ ...session, role: 'parent' });
+      const chosen = name.trim() || 'Amma';
+      const session = await enrolParent(chosen, null);
+      await saveSession({ ...session, role: 'parent', memberName: chosen });
       router.replace('/parent');
     });
 
