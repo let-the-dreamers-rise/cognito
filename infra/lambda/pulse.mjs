@@ -5,6 +5,8 @@ import {
   recentSignals,
   recentDays,
   recentIncidents,
+  recentLooks,
+  watchersOf,
   openIncident,
   logAccess,
 } from "./shared/db.mjs";
@@ -53,6 +55,43 @@ function buildWeek(days, now, tz) {
       narrative: record?.narrative ?? null,
     };
   });
+}
+
+/**
+ * "Ashwin looked in on you this morning." Built from the same access ledger
+ * that lets her audit who read her data, which is the nicer half of the same
+ * fact.
+ */
+async function buildFamily(memberId, tz) {
+  const [looks, watchers] = await Promise.all([
+    recentLooks(memberId, 20),
+    watchersOf(memberId),
+  ]);
+
+  const latestByActor = new Map();
+  for (const look of looks) {
+    if (look.action?.startsWith("viewed") && !latestByActor.has(look.actor)) {
+      latestByActor.set(look.actor, look.at);
+    }
+  }
+
+  // The ledger keys on name, so two people called the same thing collapse into
+  // one row rather than appearing twice with identical timestamps.
+  const byName = new Map();
+  for (const w of watchers) {
+    const name = w.name ?? "Family";
+    const at = latestByActor.get(name) ?? null;
+    const existing = byName.get(name);
+    if (!existing || (at && at > (existing.lastLookedAt ?? ""))) {
+      byName.set(name, {
+        name,
+        lastLookedAt: at,
+        lastLookedLabel: at ? formatLocalTime(at, tz) : null,
+      });
+    }
+  }
+
+  return [...byName.values()];
 }
 
 /** What the system actually did. An invisible safety net is an untrusted one. */
@@ -106,6 +145,11 @@ export async function handler(event) {
 
   if (role !== "self") await logAccess(memberId, actor, "viewed pulse");
 
+  // Her side of it. The app should open on the people who care about her, not
+  // on her own status, or there is no reason to open it twice.
+  const family =
+    role === "self" ? await buildFamily(memberId, tz) : null;
+
   return ok({
     name: member.name,
     // The watcher gets a sentence and a verdict. Never the raw signal list.
@@ -127,6 +171,7 @@ export async function handler(event) {
       : first
         ? "normal"
         : "quiet",
+    family,
     week: buildWeek(days, now, tz),
     incidents: incidents.map((i) => summariseIncident(i, member.name)),
     // Her number, so the family can call straight from the alert instead of

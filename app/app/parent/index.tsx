@@ -1,24 +1,55 @@
-import { useEffect, useState } from 'react';
-import { Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useEffect, useState } from 'react';
+import {
+  Pressable,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Switch,
+  Text,
+  View,
+} from 'react-native';
 import { Link, router } from 'expo-router';
-import { sendSignals } from '../../src/api';
+import { getPulse, sendSignals, updateSettings } from '../../src/api';
+import type { FamilyMember, Pulse, Session } from '../../src/api';
 import { loadSession } from '../../src/session';
 import { watchForeground } from '../../src/signals';
 import { onNotificationTap } from '../../src/push';
-import type { Session } from '../../src/api';
 import { colors, space, type } from '../../src/theme';
 
-const greeting = () => {
-  const hour = new Date().getHours();
-  if (hour < 12) return 'Good morning';
-  if (hour < 17) return 'Good afternoon';
-  return 'Good evening';
+const partOfDay = (iso: string) => {
+  const hour = new Date(iso).getHours();
+  if (hour < 12) return 'this morning';
+  if (hour < 17) return 'this afternoon';
+  return 'this evening';
 };
+
+/**
+ * The app opens on them, not on her. She is not a patient checking in; she is
+ * someone whose children thought about her today, and that is the only reason
+ * she will ever open this twice.
+ */
+function greetingFor(family: FamilyMember[] | null) {
+  const looked = (family ?? [])
+    .filter((f) => f.lastLookedAt)
+    .sort((a, b) => (b.lastLookedAt ?? '').localeCompare(a.lastLookedAt ?? ''));
+
+  if (looked.length === 0) {
+    return 'Your family will see that today went ordinarily.';
+  }
+  if (looked.length === 1) {
+    return `${looked[0].name} looked in on you ${partOfDay(looked[0].lastLookedAt!)}.`;
+  }
+  return `${looked[0].name} and ${looked.length - 1} other${
+    looked.length > 2 ? 's' : ''
+  } looked in on you today.`;
+}
 
 export default function ParentHome() {
   const [session, setSession] = useState<Session | null>(null);
+  const [pulse, setPulse] = useState<Pulse | null>(null);
   const [confirmed, setConfirmed] = useState(false);
   const [asked, setAsked] = useState(false);
+  const [away, setAway] = useState(false);
 
   useEffect(() => {
     loadSession().then((s) => {
@@ -26,6 +57,24 @@ export default function ParentHome() {
       setSession(s);
     });
   }, []);
+
+  const refresh = useCallback(async () => {
+    if (!session) return;
+    try {
+      const next = await getPulse(session.memberId, session.deviceToken);
+      setPulse(next);
+      setAway(Boolean(next.travelUntil && next.travelUntil > new Date().toISOString()));
+    } catch {
+      // Her screen should never show an error. The signals keep flowing regardless.
+    }
+  }, [session]);
+
+  useEffect(() => {
+    if (!session) return;
+    refresh();
+    const timer = setInterval(refresh, 30_000);
+    return () => clearInterval(timer);
+  }, [session, refresh]);
 
   useEffect(() => {
     if (!session) return;
@@ -38,9 +87,7 @@ export default function ParentHome() {
     return onNotificationTap((action) => {
       if (action !== 'checkin') return;
       setConfirmed(true);
-      sendSignals(session.memberId, session.deviceToken, [{ type: 'checkin' }]).catch(
-        () => {}
-      );
+      sendSignals(session.memberId, session.deviceToken, [{ type: 'checkin' }]).catch(() => {});
     });
   }, [session]);
 
@@ -55,49 +102,100 @@ export default function ParentHome() {
     }
   };
 
+  const toggleAway = async (next: boolean) => {
+    if (!session) return;
+    setAway(next);
+    const until = next
+      ? new Date(Date.now() + 7 * 86_400_000).toISOString()
+      : null;
+    try {
+      await updateSettings(session.memberId, session.deviceToken, { travelUntil: until });
+    } catch {
+      setAway(!next);
+    }
+  };
+
+  const family = pulse?.family ?? [];
+
   return (
     <SafeAreaView style={s.screen}>
       <ScrollView contentContainerStyle={s.inner}>
-        <Text style={type.label}>Sab Theek</Text>
-        <Text style={[type.hero, s.headline]}>
-          {greeting()}, {session?.memberName ?? 'Amma'}
-        </Text>
+        <View style={s.headerRow}>
+          <Text style={type.label}>Sab Theek</Text>
+          <Link href='/parent/privacy' asChild>
+            <Pressable hitSlop={10}>
+              <Text style={type.small}>What they see</Text>
+            </Pressable>
+          </Link>
+        </View>
 
-        <Text style={[type.body, s.reassure]}>
-          {confirmed
-            ? 'Thank you. Your family knows you are alright.'
-            : 'Your family only ever sees whether your day looked ordinary.'}
-        </Text>
+        <Text style={[type.hero, s.headline]}>{greetingFor(pulse?.family ?? null)}</Text>
 
-        <Pressable style={[s.big, confirmed && s.bigDone]} onPress={() => tap('checkin')}>
-          <Text style={[s.bigText, confirmed && s.bigTextDone]}>
-            {confirmed ? 'Told them' : 'I am fine today'}
-          </Text>
-        </Pressable>
+        {/* She reads exactly the sentence her children read. Nothing is
+            described about her that she cannot see herself. */}
+        {pulse?.today && (
+          <View style={s.mirror}>
+            <Text style={type.label}>What they were told</Text>
+            <Text style={[type.body, s.mirrorText]}>{pulse.today}</Text>
+          </View>
+        )}
 
         <Pressable style={s.callMe} onPress={() => tap('callme')}>
-          <Text style={s.callMeText}>{asked ? 'They have been asked' : 'Ask them to call me'}</Text>
+          <Text style={s.callMeText}>
+            {asked ? 'They have been asked' : 'Ask them to call me'}
+          </Text>
         </Pressable>
         <Text style={[type.small, s.callNote]}>
           No need to wonder whether they are busy.
         </Text>
 
-        {session?.pairCode && (
+        {family.length > 0 && (
+          <View style={s.familyBlock}>
+            <Text style={type.label}>Your family</Text>
+            {family.map((member) => (
+              <View key={member.name} style={s.familyRow}>
+                <Text style={[type.body, s.familyName]}>{member.name}</Text>
+                <Text style={type.small}>
+                  {member.lastLookedLabel
+                    ? `looked in at ${member.lastLookedLabel}`
+                    : 'has not looked yet'}
+                </Text>
+              </View>
+            ))}
+          </View>
+        )}
+
+        <Pressable style={[s.fine, confirmed && s.fineDone]} onPress={() => tap('checkin')}>
+          <Text style={[s.fineText, confirmed && s.fineTextDone]}>
+            {confirmed ? 'Told them you are fine' : 'I am fine today'}
+          </Text>
+        </Pressable>
+
+        <View style={s.awayCard}>
+          <View style={s.awayRow}>
+            <Text style={type.title}>I am away</Text>
+            <Switch
+              value={away}
+              onValueChange={toggleAway}
+              trackColor={{ true: colors.calm, false: colors.hairline }}
+            />
+          </View>
+          <Text style={type.small}>
+            Turn this on when you travel and nobody will worry about a quiet morning.
+            If days go by with no sign of you at all, your family is still told.
+          </Text>
+        </View>
+
+        {session?.pairCode && family.length === 0 && (
           <View style={s.codeCard}>
             <Text style={type.label}>Your code</Text>
             <Text style={s.code}>{session.pairCode}</Text>
             <Text style={type.small}>
-              Give this only to family you want to see your days. You can stop sharing at any
-              time, and they cannot undo it.
+              Give this only to family you want to see your days. You can stop sharing at
+              any time, and they cannot undo it.
             </Text>
           </View>
         )}
-
-        <Link href='/parent/privacy' asChild>
-          <Pressable style={s.privacyLink}>
-            <Text style={s.privacyText}>What Sab Theek can and cannot see</Text>
-          </Pressable>
-        </Link>
       </ScrollView>
     </SafeAreaView>
   );
@@ -111,29 +209,66 @@ const s = StyleSheet.create({
     maxWidth: 520,
     width: '100%',
     alignSelf: 'center',
+    paddingBottom: space.xl,
   },
-  headline: { marginTop: space.sm },
-  reassure: { color: colors.muted, marginTop: space.sm, marginBottom: space.lg },
-  big: {
+  headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  headline: { marginTop: space.md, marginBottom: space.md },
+
+  mirror: {
+    padding: space.md,
+    borderRadius: 16,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.hairline,
+    gap: space.xs,
+    marginBottom: space.lg,
+  },
+  mirrorText: { color: colors.ink },
+
+  callMe: {
     backgroundColor: colors.ink,
-    paddingVertical: 34,
+    paddingVertical: 30,
     borderRadius: 20,
     alignItems: 'center',
   },
-  bigDone: { backgroundColor: colors.calm },
-  bigText: { color: colors.paper, fontSize: 24, fontWeight: '600' },
-  bigTextDone: { color: colors.paper },
-  callMe: {
-    marginTop: space.sm,
+  callMeText: { color: colors.paper, fontSize: 22, fontWeight: '600' },
+  callNote: { textAlign: 'center', marginTop: space.xs },
+
+  familyBlock: { marginTop: space.lg, gap: space.sm },
+  familyRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderBottomWidth: 1,
+    borderBottomColor: colors.hairline,
+    paddingBottom: space.sm,
+  },
+  familyName: { fontWeight: '600' },
+
+  fine: {
+    marginTop: space.lg,
     borderWidth: 1,
     borderColor: colors.hairline,
     backgroundColor: colors.card,
-    paddingVertical: 22,
+    paddingVertical: 20,
     borderRadius: 20,
     alignItems: 'center',
   },
-  callMeText: { color: colors.ink, fontSize: 19, fontWeight: '600' },
-  callNote: { textAlign: 'center', marginTop: space.xs },
+  fineDone: { backgroundColor: '#EAF3EE', borderColor: '#C8E0D3' },
+  fineText: { color: colors.ink, fontSize: 18, fontWeight: '600' },
+  fineTextDone: { color: colors.calm },
+
+  awayCard: {
+    marginTop: space.lg,
+    padding: space.md,
+    borderRadius: 16,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.hairline,
+    gap: space.sm,
+  },
+  awayRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+
   codeCard: {
     marginTop: space.lg,
     padding: space.md,
@@ -144,11 +279,4 @@ const s = StyleSheet.create({
     gap: space.xs,
   },
   code: { fontSize: 32, letterSpacing: 8, color: colors.ink, fontWeight: '600' },
-  privacyLink: { marginTop: space.lg, paddingVertical: space.sm },
-  privacyText: {
-    color: colors.ink,
-    fontSize: 15,
-    textDecorationLine: 'underline',
-    textAlign: 'center',
-  },
 });

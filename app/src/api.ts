@@ -26,6 +26,12 @@ export type IncidentSummary = {
 
 export type LocalContact = { name: string; phone: string };
 
+export type FamilyMember = {
+  name: string;
+  lastLookedAt: string | null;
+  lastLookedLabel: string | null;
+};
+
 export type Pulse = {
   name: string;
   pulse: string;
@@ -44,6 +50,8 @@ export type Pulse = {
   usuallyUpBy: string | null;
   worryAfter: string | null;
   travelUntil: string | null;
+  /** Only present on her own device. */
+  family: FamilyMember[] | null;
   week: WeekDay[];
   incidents: IncidentSummary[];
   phone: string | null;

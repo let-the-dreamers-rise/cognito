@@ -134,6 +134,20 @@ export async function setIncidentStatus(memberId, incidentId, status, extra = {}
   );
 }
 
+/** Who looked in on her, newest first. Her side of the relationship. */
+export async function recentLooks(memberId, limit = 10) {
+  const res = await doc.send(
+    new QueryCommand({
+      TableName: TABLE,
+      KeyConditionExpression: "pk = :p AND begins_with(sk, :s)",
+      ExpressionAttributeValues: { ":p": `MEM#${memberId}`, ":s": "LOG#" },
+      ScanIndexForward: false,
+      Limit: limit,
+    })
+  );
+  return res.Items ?? [];
+}
+
 /** Transparency ledger: the watched person can see every read of their data. */
 export async function logAccess(memberId, actor, action) {
   const now = new Date();

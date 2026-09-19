@@ -30,6 +30,9 @@ const SEED_DAYS = [
   { back: 3, narrative: "Amma's day looked normal - up around 7:15, 1,100 steps." },
   { back: 2, narrative: "Amma's day looked normal - up around 7:40, phone on charge by evening." },
   { back: 1, narrative: "Amma's day looked normal - up around 7:25, a trip to the shop." },
+  // Today, so both sides have the same sentence to show before the nightly
+  // summary has had a chance to run. The real job overwrites this at 21:00.
+  { back: 0, narrative: "Amma's day looked normal - up around 7:30, out to the shop, back by nine." },
 ];
 
 async function seedBaseline(member) {
