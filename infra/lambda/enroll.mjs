@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { doc, TABLE, ALL_MEMBERS, getMember, putItem, memberKey } from "./shared/db.mjs";
 import { GetCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
 import { ok, bad, parseBody, bearer } from "./shared/http.mjs";
+import { authorise } from "./shared/auth.mjs";
 import { DEFAULT_TZ } from "./shared/time.mjs";
 
 const PAIR_ALPHABET = "ACDEFGHJKLMNPQRTUVWXY3479";
@@ -31,6 +32,7 @@ async function enrolParent(body) {
     role: "parent",
     name: body.name ?? "Amma",
     tz: body.tz ?? DEFAULT_TZ,
+    phone: body.phone ?? null,
     deviceToken,
     pairCode: code,
     pushToken: body.pushToken ?? null,
@@ -81,12 +83,30 @@ async function enrolWatcher(body) {
   };
 }
 
-async function updateSettings(event, body) {
-  const token = bearer(event);
-  const member = await getMember(body.memberId);
-  if (!member || member.deviceToken !== token) return null;
+/** Hers to change. */
+const SELF_FIELDS = [
+  "pushToken",
+  "enabled",
+  "travelUntil",
+  "localContact",
+  "name",
+  "tz",
+  "phone",
+];
 
-  const allowed = ["pushToken", "enabled", "travelUntil", "localContact", "name", "tz"];
+/**
+ * A watcher may register the neighbour and her number, because they are usually
+ * the one setting this up and the last rung is useless without them. They
+ * cannot touch anything about what is shared or whether sharing is on.
+ */
+const WATCHER_FIELDS = ["localContact", "phone"];
+
+async function updateSettings(event, body) {
+  const auth = await authorise(body.memberId, bearer(event));
+  if (!auth) return null;
+
+  const { member, role } = auth;
+  const allowed = role === "self" ? SELF_FIELDS : WATCHER_FIELDS;
   const updates = allowed.filter((k) => body[k] !== undefined);
   if (updates.length === 0) return member;
 

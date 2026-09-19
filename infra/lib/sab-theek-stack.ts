@@ -69,6 +69,7 @@ export class SabTheekStack extends cdk.Stack {
     const enrollFn = makeFn('EnrollFn', 'enroll.handler');
     const ingestFn = makeFn('IngestFn', 'ingest.handler');
     const pulseFn = makeFn('PulseFn', 'pulse.handler');
+    const resolveFn = makeFn('ResolveFn', 'resolve.handler');
     const escalateFn = makeFn('EscalateFn', 'escalate.handler', {}, 20);
     const summarizeFn = makeFn(
       'SummarizeFn',
@@ -241,6 +242,7 @@ export class SabTheekStack extends cdk.Stack {
     route('/settings', apigw.HttpMethod.POST, enrollFn, 'IntSettings');
     route('/signals', apigw.HttpMethod.POST, ingestFn, 'IntSignals');
     route('/pulse', apigw.HttpMethod.GET, pulseFn, 'IntPulse');
+    route('/resolve', apigw.HttpMethod.POST, resolveFn, 'IntResolve');
     route('/demo/seed', apigw.HttpMethod.POST, demoFn, 'IntDemoSeed');
     route('/demo/anomaly', apigw.HttpMethod.POST, demoFn, 'IntDemoAnomaly');
 

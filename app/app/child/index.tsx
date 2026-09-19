@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Linking,
   Pressable,
   RefreshControl,
   SafeAreaView,
@@ -9,19 +10,28 @@ import {
   Text,
   View,
 } from 'react-native';
-import { router } from 'expo-router';
-import { getPulse, seedBaseline, triggerQuietMorning } from '../../src/api';
-import type { Pulse, Session } from '../../src/api';
+import { Link, router } from 'expo-router';
+import {
+  getPulse,
+  resolveIncident,
+  seedBaseline,
+  triggerQuietMorning,
+} from '../../src/api';
+import type { Pulse, Session, WeekDay } from '../../src/api';
 import { loadSession } from '../../src/session';
 import { colors, space, statusColor, type } from '../../src/theme';
 
 const POLL_MS = 10_000;
+
+const dayColor = (status: WeekDay['status']) =>
+  status === 'normal' ? colors.calm : status === 'quiet' ? colors.checking : colors.hairline;
 
 export default function ChildHome() {
   const [session, setSession] = useState<Session | null>(null);
   const [pulse, setPulse] = useState<Pulse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [picked, setPicked] = useState<WeekDay | null>(null);
   const [showDemo, setShowDemo] = useState(false);
   const [demoNote, setDemoNote] = useState<string | null>(null);
 
@@ -55,6 +65,12 @@ export default function ChildHome() {
     setRefreshing(false);
   };
 
+  const standDown = async () => {
+    if (!session) return;
+    await resolveIncident(session.memberId, session.deviceToken).catch(() => {});
+    await refresh();
+  };
+
   const runDemo = async (fn: () => Promise<string>) => {
     try {
       setDemoNote(await fn());
@@ -72,6 +88,8 @@ export default function ChildHome() {
     );
   }
 
+  const concerned = Boolean(pulse?.concern);
+
   return (
     <SafeAreaView style={s.screen}>
       <ScrollView
@@ -80,40 +98,86 @@ export default function ChildHome() {
       >
         <View style={s.headerRow}>
           <Text style={type.label}>{pulse?.name ?? session.memberName ?? 'Home'}</Text>
-          <View style={[s.dot, { backgroundColor: statusColor(pulse?.status) }]} />
+          <View style={s.headerRight}>
+            <Link href='/child/settings' asChild>
+              <Pressable hitSlop={10}>
+                <Text style={type.small}>Settings</Text>
+              </Pressable>
+            </Link>
+            <View style={[s.dot, { backgroundColor: statusColor(pulse?.status) }]} />
+          </View>
         </View>
 
-        {/* The whole product is this sentence. Everything under it is secondary.
-            On an ordinary day it reassures; when something is wrong it says so
-            plainly and takes over the screen. */}
-        <Text
-          style={[
-            type.hero,
-            s.headline,
-            pulse?.critical && s.criticalHeadline,
-          ]}
-        >
+        {/* On an ordinary day this reassures. When something is wrong it says so
+            plainly and takes the screen. */}
+        <Text style={[type.hero, s.headline, pulse?.critical && s.criticalHeadline]}>
           {error ?? pulse?.concern ?? pulse?.today ?? pulse?.pulse ?? 'No word yet today.'}
         </Text>
 
-        {(pulse?.today || pulse?.concern) && (
-          <Text style={[type.body, s.sub]}>{pulse.pulse}</Text>
+        {(pulse?.today || concerned) && <Text style={[type.body, s.sub]}>{pulse?.pulse}</Text>}
+
+        {concerned && (
+          <View style={[s.actions, pulse?.critical && s.actionsCritical]}>
+            {pulse?.critical && (
+              <Text style={[type.body, s.criticalText]}>
+                We have already tried her phone and had no answer.
+                {pulse.localContact
+                  ? ` ${pulse.localContact.name} has been sent a message.`
+                  : ''}
+              </Text>
+            )}
+            <View style={s.actionRow}>
+              <Pressable
+                style={[s.action, s.actionPrimary, !pulse?.phone && s.disabled]}
+                disabled={!pulse?.phone}
+                onPress={() => Linking.openURL(`tel:${pulse?.phone}`)}
+              >
+                <Text style={s.actionPrimaryText}>
+                  {pulse?.phone ? `Call ${pulse.name}` : 'No number saved'}
+                </Text>
+              </Pressable>
+              <Pressable style={s.action} onPress={standDown}>
+                <Text style={s.actionText}>I have spoken to her</Text>
+              </Pressable>
+            </View>
+          </View>
         )}
 
-        {pulse?.critical && (
-          <View style={s.criticalCard}>
-            <Text style={[type.body, s.criticalText]}>
-              We have already tried her phone and had no answer, and the neighbour you
-              registered has been sent a message. Please call her now.
-            </Text>
+        {/* Seven days as a row. One day is an anecdote; a week is a pattern. */}
+        {pulse?.week && (
+          <View style={s.weekBlock}>
+            <Text style={type.label}>This week</Text>
+            <View style={s.week}>
+              {pulse.week.map((day) => (
+                <Pressable
+                  key={day.date}
+                  style={s.dayCol}
+                  onPress={() => setPicked(picked?.date === day.date ? null : day)}
+                >
+                  <View
+                    style={[
+                      s.dayBar,
+                      { backgroundColor: dayColor(day.status) },
+                      picked?.date === day.date && s.dayBarPicked,
+                    ]}
+                  />
+                  <Text style={s.dayLabel}>{day.label}</Text>
+                </Pressable>
+              ))}
+            </View>
+            {picked && (
+              <Text style={[type.small, s.pickedText]}>
+                {picked.narrative ?? 'Nothing recorded for this day.'}
+              </Text>
+            )}
           </View>
         )}
 
         {pulse?.learning && (
           <View style={s.learning}>
             <Text style={type.small}>
-              Still learning her routine {'·'} {pulse.learningProgress} ordinary days. Until
-              then Sab Theek will not raise anything.
+              Still learning her routine {'·'} {pulse.learningProgress} ordinary days.
+              Until then Sab Theek will not raise anything.
             </Text>
           </View>
         )}
@@ -123,16 +187,36 @@ export default function ChildHome() {
             <Fact label='First picked up her phone' value={pulse.firstActivityAt} />
           )}
           {pulse?.usuallyUpBy && <Fact label='Usually up by' value={pulse.usuallyUpBy} />}
+          {pulse?.worryAfter && !pulse.learning && (
+            <Fact label='We check in after' value={pulse.worryAfter} />
+          )}
           {!!pulse?.steps && (
             <Fact label='Walked' value={`${pulse.steps.toLocaleString('en-IN')} steps`} />
           )}
         </View>
 
-        {pulse?.status === 'checking' && (
-          <View style={s.checking}>
-            <Text style={[type.body, s.checkingText]}>
-              We are asking her first. You will only hear from us if she does not answer.
-            </Text>
+        {/* Without this the final rung of the ladder has nobody to call. */}
+        {pulse && !pulse.localContact && (
+          <Link href='/child/settings' asChild>
+            <Pressable style={s.warning}>
+              <Text style={[type.body, s.warningText]}>
+                No one nearby is registered. If she does not answer, there is nobody we can
+                reach. Tap to add a neighbour.
+              </Text>
+            </Pressable>
+          </Link>
+        )}
+
+        {/* An invisible safety net is an untrusted one. */}
+        {pulse?.incidents && pulse.incidents.length > 0 && (
+          <View style={s.history}>
+            <Text style={type.label}>What we have done</Text>
+            {pulse.incidents.slice(0, 4).map((incident) => (
+              <View key={incident.incidentId} style={s.historyRow}>
+                <Text style={[type.body, s.historyWhat]}>{incident.what}</Text>
+                <Text style={type.small}>{incident.outcome}</Text>
+              </View>
+            ))}
           </View>
         )}
 
@@ -143,26 +227,26 @@ export default function ChildHome() {
         {showDemo && (
           <View style={s.demoCard}>
             <Text style={type.small}>
-              For judges: seed six ordinary mornings, then run a morning where nothing happens.
-              The ladder waits twelve seconds a rung instead of twenty minutes.
+              For judges: seed a week of ordinary days, then run a morning where nothing
+              happens. The ladder waits seconds a rung instead of twenty minutes.
             </Text>
             <Pressable
               style={s.demoBtn}
               onPress={() =>
                 runDemo(async () => {
                   await seedBaseline(session.memberId, session.deviceToken);
-                  return 'Baseline seeded. She is usually up around 7:30am.';
+                  return 'Seeded. She is usually up around 7:30am.';
                 })
               }
             >
-              <Text style={s.demoBtnText}>Seed her routine</Text>
+              <Text style={s.demoBtnText}>Seed her routine and week</Text>
             </Pressable>
             <Pressable
               style={s.demoBtn}
               onPress={() =>
                 runDemo(async () => {
                   await triggerQuietMorning(session.memberId, session.deviceToken, 'late', 12);
-                  return 'A quiet morning is running. She gets asked first, twice.';
+                  return 'A quiet morning. She is asked first, twice.';
                 })
               }
             >
@@ -214,19 +298,45 @@ const s = StyleSheet.create({
     alignSelf: 'center',
   },
   headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  headerRight: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
   dot: { width: 10, height: 10, borderRadius: 5 },
   headline: { marginTop: space.md },
   criticalHeadline: { color: colors.critical, fontWeight: '600' },
   sub: { color: colors.muted, marginTop: space.sm },
-  criticalCard: {
+
+  actions: {
     marginTop: space.md,
     padding: space.md,
     borderRadius: 16,
-    backgroundColor: '#FCEDED',
+    backgroundColor: '#FDF4E6',
     borderWidth: 1,
-    borderColor: '#F0C9C9',
+    borderColor: '#F0DFC2',
+    gap: space.sm,
   },
+  actionsCritical: { backgroundColor: '#FCEDED', borderColor: '#F0C9C9' },
   criticalText: { color: '#7A1A1A' },
+  actionRow: { gap: space.sm },
+  action: {
+    borderWidth: 1,
+    borderColor: colors.hairline,
+    backgroundColor: colors.card,
+    borderRadius: 12,
+    paddingVertical: 15,
+    alignItems: 'center',
+  },
+  actionPrimary: { backgroundColor: colors.ink, borderColor: colors.ink },
+  actionPrimaryText: { color: colors.paper, fontSize: 16, fontWeight: '600' },
+  actionText: { color: colors.ink, fontSize: 15, fontWeight: '600' },
+  disabled: { opacity: 0.4 },
+
+  weekBlock: { marginTop: space.lg, gap: space.sm },
+  week: { flexDirection: 'row', justifyContent: 'space-between', gap: space.xs },
+  dayCol: { flex: 1, alignItems: 'center', gap: space.xs },
+  dayBar: { height: 38, width: '100%', borderRadius: 7 },
+  dayBarPicked: { borderWidth: 2, borderColor: colors.ink },
+  dayLabel: { fontSize: 11, color: colors.muted },
+  pickedText: { marginTop: space.xs },
+
   learning: {
     marginTop: space.md,
     padding: space.sm,
@@ -245,7 +355,8 @@ const s = StyleSheet.create({
     paddingBottom: space.sm,
   },
   factValue: { fontWeight: '600' },
-  checking: {
+
+  warning: {
     marginTop: space.lg,
     padding: space.md,
     borderRadius: 16,
@@ -253,7 +364,16 @@ const s = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#F0DFC2',
   },
-  checkingText: { color: '#6B4B12' },
+  warningText: { color: '#6B4B12' },
+
+  history: { marginTop: space.lg, gap: space.sm },
+  historyRow: {
+    paddingBottom: space.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.hairline,
+  },
+  historyWhat: { fontWeight: '600' },
+
   demoToggle: { marginTop: space.xl, paddingVertical: space.sm },
   demoCard: {
     padding: space.md,

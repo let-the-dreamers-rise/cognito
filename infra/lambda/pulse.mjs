@@ -2,12 +2,13 @@ import { GetCommand } from "@aws-sdk/lib-dynamodb";
 import {
   doc,
   TABLE,
-  getMember,
   recentSignals,
-  watchersOf,
+  recentDays,
+  recentIncidents,
   openIncident,
   logAccess,
 } from "./shared/db.mjs";
+import { authorise } from "./shared/auth.mjs";
 import { ok, bad, bearer } from "./shared/http.mjs";
 import { startOfLocalDay, localDate, formatLocalTime, minutesToClock } from "./shared/time.mjs";
 import {
@@ -31,27 +32,54 @@ function phrase(minutes) {
   return "No activity for over a day";
 }
 
-async function authorise(event, memberId) {
-  const token = bearer(event);
-  if (!token) return null;
+const DAY_MS = 86_400_000;
 
-  const member = await getMember(memberId);
-  if (!member) return null;
-  if (member.deviceToken === token) return { member, actor: "self" };
+/**
+ * Seven days as a row, oldest first, aligned to her calendar so a day we never
+ * saw shows as a gap rather than silently collapsing the week.
+ */
+function buildWeek(days, now, tz) {
+  const byDate = new Map(days.map((d) => [d.sk.slice(4), d]));
 
-  const watchers = await watchersOf(memberId);
-  const watcher = watchers.find((w) => w.deviceToken === token);
-  return watcher ? { member, actor: watcher.name ?? "Family" } : null;
+  return Array.from({ length: 7 }, (_, i) => {
+    const date = new Date(now.getTime() - (6 - i) * DAY_MS);
+    const key = localDate(date, tz);
+    const record = byDate.get(key);
+
+    return {
+      date: key,
+      label: new Intl.DateTimeFormat("en-IN", { timeZone: tz, weekday: "narrow" }).format(date),
+      status: record ? (record.firstActivityAt ? "normal" : "quiet") : "unknown",
+      narrative: record?.narrative ?? null,
+    };
+  });
 }
+
+/** What the system actually did. An invisible safety net is an untrusted one. */
+const summariseIncident = (incident, name) => ({
+  incidentId: incident.incidentId,
+  at: incident.openedAt,
+  what: incident.reason ?? describe(incident.severity, name),
+  severity: incident.severity ?? null,
+  outcome:
+    incident.status === "resolved"
+      ? incident.resolvedBy
+        ? `Stood down by ${incident.resolvedBy}`
+        : "She answered, and you were never told"
+      : incident.status === "escalated"
+        ? "Escalated to you and the neighbour"
+        : "Checking now",
+  lastRung: incident.lastRung ?? null,
+});
 
 export async function handler(event) {
   const memberId = event?.queryStringParameters?.memberId;
   if (!memberId) return bad(400, "memberId is required");
 
-  const auth = await authorise(event, memberId);
+  const auth = await authorise(memberId, bearer(event));
   if (!auth) return bad(403, "not linked to this person");
 
-  const { member, actor } = auth;
+  const { member, actor, role } = auth;
   const tz = member.tz;
   const now = new Date();
 
@@ -71,8 +99,12 @@ export async function handler(event) {
     .reduce((sum, s) => sum + (s.steps ?? 0), 0);
 
   const expectedBy = expectedByMinutes(member.baseline);
+  const [days, incidents] = await Promise.all([
+    recentDays(memberId, 8),
+    recentIncidents(memberId, 5),
+  ]);
 
-  if (actor !== "self") await logAccess(memberId, actor, "viewed pulse");
+  if (role !== "self") await logAccess(memberId, actor, "viewed pulse");
 
   return ok({
     name: member.name,
@@ -95,9 +127,21 @@ export async function handler(event) {
       : first
         ? "normal"
         : "quiet",
+    week: buildWeek(days, now, tz),
+    incidents: incidents.map((i) => summariseIncident(i, member.name)),
+    // Her number, so the family can call straight from the alert instead of
+    // hunting for the dialler while anxious.
+    phone: member.phone ?? null,
+    localContact: member.localContact ?? null,
     learning: isLearning(member.baseline),
     learningProgress: `${member.baseline?.samples?.length ?? 0}/${MIN_SAMPLES}`,
-    usuallyUpBy: expectedBy == null ? null : minutesToClock(expectedBy),
+    // Her actual routine, not the worry threshold. The two-hour grace is the
+    // system's business and showing it here read as though she sleeps till 9.
+    usuallyUpBy:
+      member.baseline?.firstActivityMedian == null
+        ? null
+        : minutesToClock(member.baseline.firstActivityMedian),
+    worryAfter: expectedBy == null ? null : minutesToClock(expectedBy),
     travelUntil: member.travelUntil ?? null,
   });
 }

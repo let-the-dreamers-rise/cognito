@@ -8,6 +8,24 @@ export type Session = {
   memberName?: string;
 };
 
+export type WeekDay = {
+  date: string;
+  label: string;
+  status: 'normal' | 'quiet' | 'unknown';
+  narrative: string | null;
+};
+
+export type IncidentSummary = {
+  incidentId: string;
+  at: string;
+  what: string;
+  severity: string | null;
+  outcome: string;
+  lastRung: string | null;
+};
+
+export type LocalContact = { name: string; phone: string };
+
 export type Pulse = {
   name: string;
   pulse: string;
@@ -24,7 +42,12 @@ export type Pulse = {
   learning: boolean;
   learningProgress: string;
   usuallyUpBy: string | null;
+  worryAfter: string | null;
   travelUntil: string | null;
+  week: WeekDay[];
+  incidents: IncidentSummary[];
+  phone: string | null;
+  localContact: LocalContact | null;
 };
 
 async function call<T>(
@@ -71,6 +94,14 @@ export const sendSignals = (
 
 export const updateSettings = (memberId: string, token: string, patch: Record<string, unknown>) =>
   call('/settings', { method: 'POST', body: { memberId, ...patch }, token });
+
+/** "I have spoken to her." Faster than waiting for her phone to prove it. */
+export const resolveIncident = (memberId: string, token: string, how = 'spoke to her') =>
+  call<{ resolved: string | null; by: string }>('/resolve', {
+    method: 'POST',
+    body: { memberId, how },
+    token,
+  });
 
 export const seedBaseline = (memberId: string, token: string) =>
   call<{ seeded: number }>('/demo/seed', { method: 'POST', body: { memberId }, token });

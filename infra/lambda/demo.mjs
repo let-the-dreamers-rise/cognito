@@ -5,6 +5,7 @@ import { doc, TABLE, getMember, putItem, memberKey } from "./shared/db.mjs";
 import { ok, bad, parseBody, bearer } from "./shared/http.mjs";
 import { updateBaseline } from "./shared/baseline.mjs";
 import { describe } from "./shared/severity.mjs";
+import { localDate } from "./shared/time.mjs";
 
 const sfn = new SFNClient({});
 const LADDER_ARN = process.env.LADDER_ARN;
@@ -18,6 +19,18 @@ const DEMO_WAIT_SECONDS = 12;
 
 /** Four plausible mornings, so the baseline is real rather than "still learning". */
 const SEED_WAKE_MINUTES = [440, 455, 430, 465, 445, 450];
+
+const DAY_MS = 86_400_000;
+
+/** Plausible past days, so the week strip has something true-shaped to show. */
+const SEED_DAYS = [
+  { back: 6, narrative: "Amma's day looked normal - up around 7:20, a walk before the heat." },
+  { back: 5, narrative: "Amma's day looked normal - up around 7:35, a trip to the shop." },
+  { back: 4, narrative: "Quiet day - the phone barely moved. Probably nothing.", quiet: true },
+  { back: 3, narrative: "Amma's day looked normal - up around 7:15, 1,100 steps." },
+  { back: 2, narrative: "Amma's day looked normal - up around 7:40, phone on charge by evening." },
+  { back: 1, narrative: "Amma's day looked normal - up around 7:25, a trip to the shop." },
+];
 
 async function seedBaseline(member) {
   const baseline = SEED_WAKE_MINUTES.reduce(
@@ -34,7 +47,26 @@ async function seedBaseline(member) {
     })
   );
 
-  return { seeded: baseline.samples.length, usuallyUpAt: baseline.firstActivityMedian };
+  const now = Date.now();
+  await Promise.all(
+    SEED_DAYS.map((day) =>
+      putItem({
+        pk: `MEM#${member.memberId}`,
+        sk: `DAY#${localDate(new Date(now - day.back * DAY_MS), member.tz)}`,
+        narrative: day.narrative,
+        firstActivityAt: day.quiet ? null : "7:30 am",
+        steps: day.quiet ? 0 : 900,
+        seeded: true,
+        createdAt: new Date().toISOString(),
+      })
+    )
+  );
+
+  return {
+    seeded: baseline.samples.length,
+    days: SEED_DAYS.length,
+    usuallyUpAt: baseline.firstActivityMedian,
+  };
 }
 
 async function forceAnomaly(member, waitSeconds, severity = "late") {

@@ -62,6 +62,33 @@ export async function recentSignals(memberId, sinceIso, limit = 200) {
   return res.Items ?? [];
 }
 
+/** The last few daily verdicts, newest first. Used for the week at a glance. */
+export async function recentDays(memberId, limit = 7) {
+  const res = await doc.send(
+    new QueryCommand({
+      TableName: TABLE,
+      KeyConditionExpression: "pk = :p AND begins_with(sk, :s)",
+      ExpressionAttributeValues: { ":p": `MEM#${memberId}`, ":s": "DAY#" },
+      ScanIndexForward: false,
+      Limit: limit,
+    })
+  );
+  return res.Items ?? [];
+}
+
+export async function recentIncidents(memberId, limit = 5) {
+  const res = await doc.send(
+    new QueryCommand({
+      TableName: TABLE,
+      KeyConditionExpression: "pk = :p AND begins_with(sk, :s)",
+      ExpressionAttributeValues: { ":p": `MEM#${memberId}`, ":s": "INC#" },
+      ScanIndexForward: false,
+      Limit: limit,
+    })
+  );
+  return res.Items ?? [];
+}
+
 export async function watchersOf(memberId) {
   const res = await doc.send(
     new QueryCommand({
