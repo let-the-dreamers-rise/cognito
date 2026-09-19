@@ -1,0 +1,13 @@
+{
+  "name": "sab-theek-lambda",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@aws-sdk/client-bedrock-runtime": "^3.699.0",
+    "@aws-sdk/client-dynamodb": "^3.699.0",
+    "@aws-sdk/client-sfn": "^3.699.0",
+    "@aws-sdk/client-sns": "^3.699.0",
+    "@aws-sdk/lib-dynamodb": "^3.699.0"
+  }
+}

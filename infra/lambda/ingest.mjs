@@ -1,0 +1,118 @@
+import { randomUUID } from "node:crypto";
+import { UpdateCommand } from "@aws-sdk/lib-dynamodb";
+import {
+  doc,
+  TABLE,
+  getMember,
+  putItem,
+  memberKey,
+  openIncident,
+  setIncidentStatus,
+  watchersOf,
+  SIGNAL_TTL_DAYS,
+} from "./shared/db.mjs";
+import { ok, bad, parseBody, bearer } from "./shared/http.mjs";
+import { isWakingSignal } from "./shared/baseline.mjs";
+import { pushToExpo } from "./shared/push.mjs";
+
+/**
+ * The only signal types this system will accept. A transaction signal carries a
+ * timestamp and nothing else: no amount, no merchant, no message body. The
+ * native SMS module discards the text on the device before this is ever called.
+ */
+const ACCEPTED = new Set([
+  "heartbeat",
+  "interaction",
+  "steps",
+  "charging",
+  "transaction",
+  "checkin",
+  "callme",
+]);
+
+const sanitise = (signal) => ({
+  type: signal.type,
+  at: signal.at ?? new Date().toISOString(),
+  // steps is the only numeric detail we keep, and only as a daily count.
+  steps: signal.type === "steps" ? Number(signal.steps ?? 0) : undefined,
+});
+
+export async function handler(event) {
+  const body = parseBody(event);
+  if (body === null) return bad(400, "invalid JSON body");
+
+  const { memberId, signals } = body;
+  if (!memberId || !Array.isArray(signals)) {
+    return bad(400, "memberId and signals[] are required");
+  }
+
+  const member = await getMember(memberId);
+  if (!member) return bad(404, "unknown member");
+  if (member.deviceToken !== bearer(event)) return bad(403, "bad device token");
+
+  const accepted = signals
+    .filter((s) => ACCEPTED.has(s?.type))
+    .map(sanitise)
+    .slice(0, 100);
+
+  if (accepted.length === 0) return ok({ stored: 0 });
+
+  const expiresAt =
+    Math.floor(Date.now() / 1000) + SIGNAL_TTL_DAYS * 24 * 3600;
+
+  await Promise.all(
+    accepted.map((signal) =>
+      putItem({
+        pk: `MEM#${memberId}`,
+        sk: `SIG#${signal.at}#${randomUUID().slice(0, 8)}`,
+        ...signal,
+        ttl: expiresAt,
+      })
+    )
+  );
+
+  const waking = accepted.filter(isWakingSignal);
+  const latest = accepted.reduce(
+    (max, s) => (s.at > max ? s.at : max),
+    member.lastSeenAt ?? ""
+  );
+
+  await doc.send(
+    new UpdateCommand({
+      TableName: TABLE,
+      Key: memberKey(memberId),
+      UpdateExpression: "SET lastSeenAt = :l",
+      ExpressionAttributeValues: { ":l": latest },
+    })
+  );
+
+  // Any sign of life closes an open incident. This is how the escalation ladder
+  // learns it can stand down without the watcher ever being told.
+  let resolved = null;
+  if (waking.length > 0) {
+    const incident = await openIncident(memberId);
+    if (incident) {
+      await setIncidentStatus(memberId, incident.incidentId, "resolved", {
+        resolvedBy: waking[0].type,
+      });
+      resolved = incident.incidentId;
+    }
+  }
+
+  // She pressed the button. Elderly parents hold back from calling because
+  // "he must be busy"; this removes the hesitation without her placing a call.
+  if (accepted.some((s) => s.type === "callme")) {
+    const watchers = await watchersOf(memberId);
+    await pushToExpo(
+      watchers.map((w) => ({
+        to: w.pushToken,
+        title: `${member.name} would like a call`,
+        body: "No hurry, and nothing is wrong.",
+        data: { action: "callme", memberId },
+        sound: "default",
+      }))
+    );
+  }
+
+  return ok({ stored: accepted.length, resolvedIncident: resolved });
+}
