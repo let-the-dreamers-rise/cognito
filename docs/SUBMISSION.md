@@ -17,8 +17,13 @@ few hours. Do not soften those into claims that are not true yet.
 ## Links
 
 - GitHub: https://github.com/let-the-dreamers-rise/cognito
-- Deployed: https://main.d2qgbxnzjs5xxe.amplifyapp.com
+- Deployed (web): https://main.d2qgbxnzjs5xxe.amplifyapp.com
+- Android APK: https://expo.dev/artifacts/eas/T_MyxwO-Hfvypy-dpPLbMOjc6aqeduTYA8d7cyPjXhE.apk
 - Demo video: _UPDATE BEFORE SUBMITTING_
+
+The APK is the real thing. The web build cannot read the phone's own signals -
+no step count, no charging state, and no bank-message timestamps - so the web
+URL shows the product's screens while the APK shows the product.
 
 ---
 
@@ -167,8 +172,9 @@ claim that does not survive a question.
       Stated plainly in the README and above; the API reports `writtenBy`.
 - [ ] _UPDATE BEFORE SUBMITTING_: has a push notification actually landed on a
       physical phone? Until it has, do not claim notifications work.
-- [ ] _UPDATE BEFORE SUBMITTING_: has the Android build run on a real device?
-      The native SMS module has never been compiled.
+- [x] Has the Android build been compiled? **Yes.** The native SMS module
+      builds cleanly on EAS; APK linked above. Whether it has been *installed*
+      and exercised on a physical handset is the line below.
 - [ ] Blog published on AWS Builder Center and linked (top 5 blogs win a
       keyboard; this is close to free given the build notes already exist)
 - [ ] Resume link is public - it is required for the Amazon fast-track

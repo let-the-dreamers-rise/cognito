@@ -7,6 +7,13 @@ kilometres away. The child carries a low-grade daily fear with nowhere to put
 it, and the only outlet is a phone call that is friction for both sides -
 *"haan beta, sab theek hai"* tells you nothing.
 
+**Try it.** Android APK (install on the phone itself, allow unknown sources):
+<https://expo.dev/artifacts/eas/T_MyxwO-Hfvypy-dpPLbMOjc6aqeduTYA8d7cyPjXhE.apk>
+Web: <https://main.d2qgbxnzjs5xxe.amplifyapp.com>
+
+The APK is the real thing. The web build has no step count, no charging state
+and no bank-message timestamps, so it shows the screens rather than the product.
+
 Sab Theek answers one question, once a day, in one sentence:
 
 > *"Amma's Friday looked normal. Up around 7:10, a trip to the shop, phone on
