@@ -13,6 +13,7 @@ import { getPulse, sendSignals, updateSettings } from '../../src/api';
 import type { FamilyMember, Pulse, Session } from '../../src/api';
 import { loadSession } from '../../src/session';
 import { watchForeground } from '../../src/signals';
+import { startBackgroundReporting } from '../../src/background';
 import { onNotificationTap } from '../../src/push';
 import { Reveal } from '../../src/Reveal';
 import {
@@ -95,6 +96,13 @@ export default function ParentHome() {
   useEffect(() => {
     if (!session) return;
     return watchForeground(session.memberId, session.deviceToken);
+  }, [session]);
+
+  // Without this the phone only ever speaks while she is holding it, and a
+  // woman who never opens the app looks exactly like a woman in trouble.
+  useEffect(() => {
+    if (session?.role !== 'parent') return;
+    startBackgroundReporting().catch(() => {});
   }, [session]);
 
   // Tapping the nudge stands the ladder down before the family is ever told.

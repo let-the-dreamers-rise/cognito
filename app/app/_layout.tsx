@@ -2,6 +2,9 @@ import { useEffect } from 'react';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
+// Imported for its side effect: the background task must be defined whenever
+// the bundle is evaluated, including a headless wake with no screen mounted.
+import '../src/background';
 import { useAppFonts } from '../src/useAppFonts';
 import { colors } from '../src/theme';
 

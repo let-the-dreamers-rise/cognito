@@ -229,6 +229,14 @@ These are real and stated deliberately rather than hidden.
 - **Single region, `us-east-1`, no staging.** `ap-south-1` is right for Indian
   families and for DPDP residency; it would also mean swapping the Nova
   inference profile from the `us.` to the `apac.` prefix.
+- **Background reporting is at Android's mercy.** The phone reports itself every
+  fifteen minutes through `expo-background-fetch`, which is the platform floor,
+  and Doze stretches it much further on a phone that sits on a table all
+  morning. That is tolerable because the question is "has the phone been used
+  today", not "is it in her hand right now" - but it means the `late` rung can
+  fire on a phone that was simply not woken yet. A foreground service would be
+  honest about what this is, at the cost of a permanent notification on her
+  screen, which is its own kind of dishonesty about what the product is for.
 - **Bedrock is wired but produces nothing on this account.** The Converse call
   is real, the IAM grant is real, and the demo seed invokes it live rather than
   serving fixture text. The account's `Model invocation max tokens per day` quota
