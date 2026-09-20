@@ -15,6 +15,11 @@ import { loadSession } from '../../src/session';
 import { watchForeground } from '../../src/signals';
 import { onNotificationTap } from '../../src/push';
 import { Reveal } from '../../src/Reveal';
+import {
+  isAvailable as smsAvailable,
+  hasPermission as smsGranted,
+  requestPermission as askForSms,
+} from '../../modules/sab-theek-sms';
 import { colors, fonts, space, type } from '../../src/theme';
 
 const partOfDay = (iso: string) => {
@@ -51,6 +56,16 @@ export default function ParentHome() {
   const [confirmed, setConfirmed] = useState(false);
   const [asked, setAsked] = useState(false);
   const [away, setAway] = useState(false);
+  // null means the question does not apply here - web, or a build without the
+  // native module. Only false is worth putting a card on her screen for.
+  const [smsOn, setSmsOn] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    if (!smsAvailable()) return;
+    smsGranted()
+      .then(setSmsOn)
+      .catch(() => setSmsOn(false));
+  }, []);
 
   useEffect(() => {
     loadSession().then((s) => {
@@ -174,6 +189,27 @@ export default function ParentHome() {
           </Text>
         </Pressable>
 
+        {/* The strongest waking signal in the product needs her permission, and
+            she will only give it if the ask is honest about what it reads. */}
+        {smsOn === false && (
+          <Pressable
+            style={s.smsCard}
+            onPress={() =>
+              askForSms()
+                .then(setSmsOn)
+                .catch(() => {})
+            }
+          >
+            <Text style={type.title}>Let them know when you are out</Text>
+            <Text style={type.small}>
+              When your bank messages you about a payment, Sab Theek notes the time and
+              nothing else - never what the message says. A payment in the morning is the
+              clearest sign to your family that your day has started.
+            </Text>
+            <Text style={[type.body, s.smsAction]}>Allow this</Text>
+          </Pressable>
+        )}
+
         <View style={s.awayCard}>
           <View style={s.awayRow}>
             <Text style={type.title}>I am away</Text>
@@ -260,6 +296,17 @@ const s = StyleSheet.create({
   fineDone: { backgroundColor: '#EAF3EE', borderColor: '#C8E0D3' },
   fineText: { color: colors.ink, fontSize: 18, fontFamily: fonts.sansStrong },
   fineTextDone: { color: colors.calm },
+
+  smsCard: {
+    marginTop: space.lg,
+    padding: space.md,
+    borderRadius: 16,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.hairline,
+    gap: space.xs,
+  },
+  smsAction: { color: colors.calm, fontFamily: fonts.sansStrong, marginTop: space.xs },
 
   awayCard: {
     marginTop: space.lg,

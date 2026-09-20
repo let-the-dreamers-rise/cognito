@@ -1,9 +1,8 @@
 import { requireOptionalNativeModule } from 'expo-modules-core';
-import { Platform } from 'react-native';
+import { PermissionsAndroid, Platform } from 'react-native';
 
 type SabTheekSmsModule = {
   hasPermission(): Promise<boolean>;
-  requestPermission(): Promise<boolean>;
   /** Returns timestamps only. The module never reads a message body. */
   getTransactionTimestamps(sinceEpochMs: number): Promise<number[]>;
 };
@@ -23,9 +22,28 @@ export async function hasPermission(): Promise<boolean> {
   return native!.hasPermission();
 }
 
+/**
+ * Nothing called this before, which meant READ_SMS was never granted, which
+ * meant getTransactionTimestamps returned an empty list on every real phone
+ * forever - the strongest signal in the product, silently never firing.
+ *
+ * The wording matters as much as the call. Asking a 70-year-old for access to
+ * her messages with no explanation is how you get a refusal, so the dialog says
+ * what is read and what is not.
+ */
 export async function requestPermission(): Promise<boolean> {
   if (!isAvailable()) return false;
-  return native!.requestPermission();
+  const result = await PermissionsAndroid.request(
+    PermissionsAndroid.PERMISSIONS.READ_SMS,
+    {
+      title: 'Let your family know your day has started',
+      message:
+        'Sab Theek notes only the time a bank or UPI message arrives. It never reads what the message says, and the text never leaves your phone.',
+      buttonPositive: 'Allow',
+      buttonNegative: 'Not now',
+    }
+  );
+  return result === PermissionsAndroid.RESULTS.GRANTED;
 }
 
 /**

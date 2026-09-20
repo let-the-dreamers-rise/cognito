@@ -3,7 +3,6 @@ package com.sabtheek.sms
 import android.Manifest
 import android.content.pm.PackageManager
 import android.provider.Telephony
-import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
@@ -42,12 +41,10 @@ class SabTheekSmsModule : Module() {
 
     AsyncFunction("hasPermission") { granted() }
 
-    AsyncFunction("requestPermission") {
-      val activity = appContext.currentActivity ?: return@AsyncFunction false
-      if (granted()) return@AsyncFunction true
-      ActivityCompat.requestPermissions(activity, arrayOf(permission), 4821)
-      granted()
-    }
+    // Asking is deliberately not done here. ActivityCompat.requestPermissions is
+    // fire-and-forget, so checking the result on the next line returns the state
+    // from before the dialog - always false the first time. The ask lives in JS,
+    // where PermissionsAndroid actually awaits the user's answer.
 
     AsyncFunction("getTransactionTimestamps") { sinceEpochMs: Double ->
       if (!granted()) return@AsyncFunction emptyList<Double>()
