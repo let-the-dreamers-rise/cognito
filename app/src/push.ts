@@ -1,5 +1,14 @@
 import { Platform } from 'react-native';
+import Constants from 'expo-constants';
 import * as Notifications from 'expo-notifications';
+
+/**
+ * A tap that launched the app from cold is the common case - she is not holding
+ * the phone at nine in the morning. But the last response is replayed on every
+ * cold start, and replaying a stale one would stand down a real incident, so
+ * only a recent tap counts.
+ */
+const TAP_IS_FRESH_MS = 10 * 60 * 1000;
 
 /**
  * Channels exist so the serious cases can behave differently from the ordinary
@@ -58,7 +67,19 @@ export async function registerForPush(): Promise<string | null> {
 
     if (status !== 'granted') return null;
 
-    const token = await Notifications.getExpoPushTokenAsync();
+    // Passing this explicitly rather than letting the library hunt for it. When
+    // the lookup fails it throws, the catch below swallows it, and the result is
+    // a member who is enrolled and can never be reached - the exact silent
+    // failure this product exists to prevent.
+    const projectId =
+      Constants.expoConfig?.extra?.eas?.projectId ?? Constants.easConfig?.projectId;
+
+    if (!projectId) {
+      console.warn('no EAS projectId in app config; push cannot be registered');
+      return null;
+    }
+
+    const token = await Notifications.getExpoPushTokenAsync({ projectId });
     return token.data ?? null;
   } catch (err) {
     console.warn('push registration unavailable', err);
@@ -71,9 +92,22 @@ export async function registerForPush(): Promise<string | null> {
  * stands down before the family is ever told.
  */
 export function onNotificationTap(handler: (action: string) => void) {
-  const sub = Notifications.addNotificationResponseReceivedListener((response) => {
+  const fire = (response: Notifications.NotificationResponse) => {
     const action = response.notification.request.content.data?.action;
     if (typeof action === 'string') handler(action);
-  });
+  };
+
+  const sub = Notifications.addNotificationResponseReceivedListener(fire);
+
+  // The listener only sees taps that arrive while the app is already running.
+  Notifications.getLastNotificationResponseAsync()
+    .then((response) => {
+      if (!response) return;
+      const at = response.notification.date;
+      if (typeof at === 'number' && Date.now() - at > TAP_IS_FRESH_MS) return;
+      fire(response);
+    })
+    .catch(() => {});
+
   return () => sub.remove();
 }
