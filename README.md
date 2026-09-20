@@ -8,7 +8,7 @@ it, and the only outlet is a phone call that is friction for both sides -
 *"haan beta, sab theek hai"* tells you nothing.
 
 **Try it.** Android APK (install on the phone itself, allow unknown sources):
-<https://expo.dev/artifacts/eas/T_MyxwO-Hfvypy-dpPLbMOjc6aqeduTYA8d7cyPjXhE.apk>
+<https://expo.dev/artifacts/eas/7UMydpHGzKhFd0-XnUTD-yL80TAZFXCUAh8CAOO4yTo.apk>
 Web: <https://main.d2qgbxnzjs5xxe.amplifyapp.com>
 
 **Judging, or just curious?** Pick *"Someone I love does"* and pair with the
