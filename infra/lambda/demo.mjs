@@ -3,13 +3,13 @@ import { SFNClient, StartExecutionCommand } from "@aws-sdk/client-sfn";
 import {
   doc,
   TABLE,
-  getMember,
   putItem,
   memberKey,
   newIncidentId,
   INCIDENT_TTL_DAYS,
 } from "./shared/db.mjs";
 import { ok, bad, parseBody, bearer } from "./shared/http.mjs";
+import { authorise } from "./shared/auth.mjs";
 import { updateBaseline } from "./shared/baseline.mjs";
 import { describe } from "./shared/severity.mjs";
 import { narrate } from "./shared/narrate.mjs";
@@ -157,9 +157,20 @@ export async function handler(event) {
   const body = parseBody(event);
   if (body === null) return bad(400, "invalid JSON body");
 
-  const member = await getMember(body.memberId);
-  if (!member) return bad(404, "unknown member");
-  if (member.deviceToken !== bearer(event)) return bad(403, "bad device token");
+  // The demo controls sit on the family's screen, so the family's token has to
+  // open them. Demanding the parent's token meant the one path a judge actually
+  // takes - pair as family, open demo controls - failed with "bad device
+  // token", while a curl with her token worked fine.
+  const auth = await authorise(body.memberId, bearer(event));
+  if (!auth) return bad(403, "not linked to this person");
+  const { member } = auth;
+
+  // Forcing an escalation on a real account means a real text message to a real
+  // neighbour, at whatever hour it happens to be. Only an account minted by the
+  // demo pairing code can be made to do that on command.
+  if (!member.demo) {
+    return bad(403, "demo controls are only available on a demo account");
+  }
 
   const path = event?.rawPath ?? "";
 

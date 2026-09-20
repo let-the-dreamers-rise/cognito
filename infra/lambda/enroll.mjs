@@ -4,6 +4,7 @@ import { GetCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
 import { ok, bad, parseBody, bearer } from "./shared/http.mjs";
 import { authorise } from "./shared/auth.mjs";
 import { DEFAULT_TZ } from "./shared/time.mjs";
+import { isDemoCode, demoExpiry } from "./shared/demo.mjs";
 
 const PAIR_ALPHABET = "ACDEFGHJKLMNPQRTUVWXY3479";
 
@@ -18,7 +19,7 @@ const pairCode = () =>
  * add themselves to someone else's account, which is what makes covert
  * installation impossible.
  */
-async function enrolParent(body) {
+async function enrolParent(body, { demo = false } = {}) {
   const memberId = randomUUID();
   const deviceToken = randomUUID();
   const code = pairCode();
@@ -30,6 +31,9 @@ async function enrolParent(body) {
     gsi1sk: `MEM#${memberId}`,
     memberId,
     role: "parent",
+    // Only a member created this way can ever be made to escalate on command.
+    demo,
+    ...(demo ? { ttl: demoExpiry() } : {}),
     name: body.name ?? "Amma",
     tz: body.tz ?? DEFAULT_TZ,
     phone: body.phone ?? null,
@@ -49,11 +53,45 @@ async function enrolParent(body) {
 
   await putItem({ pk: `PAIR#${code}`, sk: "PROFILE", memberId, createdAt: now });
 
-  return { memberId, deviceToken, pairCode: code, role: "parent" };
+  return { memberId, deviceToken, pairCode: code, role: "parent", demo };
+}
+
+/**
+ * The demo code does not point at one shared account. It mints a new one each
+ * time, so two judges trying it at the same minute never see each other's
+ * escalations, and nobody can leave the demo in a broken state for the next
+ * person.
+ */
+async function enrolIntoFreshDemo(body) {
+  const parent = await enrolParent({ name: "Amma" }, { demo: true });
+  const watcher = await attachWatcher(parent.memberId, body, { demo: true });
+  return { ...watcher, memberName: "Amma", demo: true };
+}
+
+async function attachWatcher(memberId, body, { demo = false } = {}) {
+  const watcherId = randomUUID();
+  const deviceToken = randomUUID();
+
+  await putItem({
+    pk: `MEM#${memberId}`,
+    sk: `WATCHER#${watcherId}`,
+    watcherId,
+    memberId,
+    name: body.name ?? "Family",
+    deviceToken,
+    pushToken: body.pushToken ?? null,
+    createdAt: new Date().toISOString(),
+    // Expires with the demo member it belongs to, rather than orphaning.
+    ...(demo ? { ttl: demoExpiry() } : {}),
+  });
+
+  return { watcherId, memberId, deviceToken, role: "watcher" };
 }
 
 async function enrolWatcher(body) {
   if (!body.pairCode) return null;
+
+  if (isDemoCode(body.pairCode)) return enrolIntoFreshDemo(body);
 
   const pair = await doc.send(
     new GetCommand({
@@ -63,27 +101,14 @@ async function enrolWatcher(body) {
   );
   if (!pair.Item) return null;
 
-  const watcherId = randomUUID();
-  const deviceToken = randomUUID();
   const member = await getMember(pair.Item.memberId);
-
-  await putItem({
-    pk: `MEM#${pair.Item.memberId}`,
-    sk: `WATCHER#${watcherId}`,
-    watcherId,
-    memberId: pair.Item.memberId,
-    name: body.name ?? "Family",
-    deviceToken,
-    pushToken: body.pushToken ?? null,
-    createdAt: new Date().toISOString(),
-  });
+  const watcher = await attachWatcher(pair.Item.memberId, body);
 
   return {
-    watcherId,
-    memberId: pair.Item.memberId,
+    ...watcher,
     memberName: member?.name ?? "Amma",
-    deviceToken,
-    role: "watcher",
+    // A real account, whatever the watcher's device thinks.
+    demo: Boolean(member?.demo),
   };
 }
 

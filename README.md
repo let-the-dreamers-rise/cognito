@@ -11,6 +11,13 @@ it, and the only outlet is a phone call that is friction for both sides -
 <https://expo.dev/artifacts/eas/T_MyxwO-Hfvypy-dpPLbMOjc6aqeduTYA8d7cyPjXhE.apk>
 Web: <https://main.d2qgbxnzjs5xxe.amplifyapp.com>
 
+**Judging, or just curious?** Pick *"Someone I love does"* and pair with the
+code **`TRYME9`**. It mints a fresh sample family for you alone, seeded with a
+week of ordinary days, and unlocks the controls that force a quiet morning or
+two days of silence. Every other code belongs to somebody's actual mother, and
+those accounts have no demo controls at all - forcing an escalation on one
+would text a real neighbour at whatever hour it happened to be.
+
 The APK is the real thing. The web build has no step count, no charging state
 and no bank-message timestamps, so it shows the screens rather than the product.
 

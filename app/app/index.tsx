@@ -9,7 +9,7 @@ import {
   View,
 } from 'react-native';
 import { router } from 'expo-router';
-import { enrolParent, enrolWatcher } from '../src/api';
+import { DEMO_PAIR_CODE, enrolParent, enrolWatcher } from '../src/api';
 import { loadSession, saveSession } from '../src/session';
 import { registerForPush } from '../src/push';
 import { Reveal } from '../src/Reveal';
@@ -56,6 +56,18 @@ export default function Welcome() {
     run(async () => {
       const session = await enrolWatcher(
         code.trim().toUpperCase(),
+        name.trim() || 'Family',
+        await registerForPush()
+      );
+      await saveSession({ ...session, role: 'watcher' });
+      router.replace('/child');
+    });
+
+  const useDemoCode = () =>
+    run(async () => {
+      setCode(DEMO_PAIR_CODE);
+      const session = await enrolWatcher(
+        DEMO_PAIR_CODE,
         name.trim() || 'Family',
         await registerForPush()
       );
@@ -129,6 +141,16 @@ export default function Welcome() {
             <Pressable onPress={() => setMode('choose')}>
               <Text style={[type.small, s.note]}>Back</Text>
             </Pressable>
+
+            {/* A judge has no mother enrolled here. This mints a fresh demo
+                account so they can see the product rather than an empty one. */}
+            {mode === 'watcher' && (
+              <Pressable onPress={useDemoCode} disabled={busy} style={s.demoHint}>
+                <Text style={[type.small, s.note]}>
+                  No code? Use {DEMO_PAIR_CODE} to look around a sample family.
+                </Text>
+              </Pressable>
+            )}
           </Reveal>
         )}
 
@@ -177,6 +199,7 @@ const s = StyleSheet.create({
     fontFamily: fonts.sansStrong,
   },
   disabled: { opacity: 0.5 },
+  demoHint: { paddingVertical: space.xs },
   note: { marginTop: space.sm, textAlign: 'center' },
   error: {
     marginTop: space.md,

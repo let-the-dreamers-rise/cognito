@@ -1,11 +1,16 @@
 import { API_URL } from './config';
 
+/** The one pairing code that opens a demo account. Every other code is real. */
+export const DEMO_PAIR_CODE = 'TRYME9';
+
 export type Session = {
   role: 'parent' | 'watcher';
   memberId: string;
   deviceToken: string;
   pairCode?: string;
   memberName?: string;
+  /** True only for an account minted by the demo code. */
+  demo?: boolean;
 };
 
 export type WeekDay = {
@@ -56,6 +61,8 @@ export type Pulse = {
   incidents: IncidentSummary[];
   phone: string | null;
   localContact: LocalContact | null;
+  /** Whether this account may be made to escalate on command. */
+  demo?: boolean;
 };
 
 async function call<T>(

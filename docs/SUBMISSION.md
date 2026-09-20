@@ -21,6 +21,14 @@ few hours. Do not soften those into claims that are not true yet.
 - Android APK: https://expo.dev/artifacts/eas/T_MyxwO-Hfvypy-dpPLbMOjc6aqeduTYA8d7cyPjXhE.apk
 - Demo video: _UPDATE BEFORE SUBMITTING_
 
+**To look around without enrolling anyone:** choose *"Someone I love does"* and
+enter the pairing code **`TRYME9`**. That mints a fresh sample family just for
+you - your own isolated account, seeded with a week of ordinary days - and
+unlocks the demo controls that can force a quiet morning or two days of
+silence. Every other pairing code is somebody's actual mother, and on those the
+demo controls do not exist: forcing an escalation there would send a real text
+message to a real neighbour.
+
 The APK is the real thing. The web build cannot read the phone's own signals -
 no step count, no charging state, and no bank-message timestamps - so the web
 URL shows the product's screens while the APK shows the product.

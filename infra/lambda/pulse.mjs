@@ -189,5 +189,7 @@ export async function handler(event) {
         : minutesToClock(member.baseline.firstActivityMedian),
     worryAfter: expectedBy == null ? null : minutesToClock(expectedBy),
     travelUntil: member.travelUntil ?? null,
+    // Drives whether the family's screen offers demo controls at all.
+    demo: Boolean(member.demo),
   });
 }

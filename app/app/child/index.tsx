@@ -91,6 +91,8 @@ export default function ChildHome() {
   }
 
   const concerned = Boolean(pulse?.concern);
+  // The server is the authority; the session only covers the first paint.
+  const isDemo = pulse?.demo ?? session.demo ?? false;
 
   return (
     <SafeAreaView style={s.screen}>
@@ -231,11 +233,15 @@ export default function ChildHome() {
           </View>
         )}
 
-        <Pressable onPress={() => setShowDemo((v) => !v)} style={s.demoToggle}>
-          <Text style={type.small}>{showDemo ? 'Hide demo controls' : 'Demo controls'}</Text>
-        </Pressable>
+        {/* Only ever offered on an account the demo code created. On anyone's
+            real mother these controls would text a real neighbour. */}
+        {isDemo && (
+          <Pressable onPress={() => setShowDemo((v) => !v)} style={s.demoToggle}>
+            <Text style={type.small}>{showDemo ? 'Hide demo controls' : 'Demo controls'}</Text>
+          </Pressable>
+        )}
 
-        {showDemo && (
+        {isDemo && showDemo && (
           <View style={s.demoCard}>
             <Text style={type.small}>
               For judges: seed a week of ordinary days, then run a morning where nothing
