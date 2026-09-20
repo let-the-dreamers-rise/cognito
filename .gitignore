@@ -11,3 +11,6 @@ cdk.out/
 app/dist/
 app/dist.zip
 app/.appid
+
+# FCM service account key lives outside the repo; never commit a key
+*fcm-v1.json

@@ -10,6 +10,7 @@
     "backgroundColor": "#FBF7F0",
     "android": {
       "package": "com.sabtheek.app",
+      "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",

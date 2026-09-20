@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "459615654732",
+    "project_id": "sabtheek-23533",
+    "storage_bucket": "sabtheek-23533.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:459615654732:android:4f591482230dd64970b5e9",
+        "android_client_info": {
+          "package_name": "com.sabtheek.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAR7cxWD0fCNdT1SjXH1RnXoac7rekEzXs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
