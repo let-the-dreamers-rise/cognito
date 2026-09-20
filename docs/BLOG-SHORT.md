@@ -1,8 +1,8 @@
 # Absence is not an event
 
 My parents live a thousand kilometres from me. Some mornings I'm frightened,
-and calling doesn't help, because whatever is happening my mother says *sab
-theek hai*. Everything's fine.
+and calling doesn't help: whatever is happening, my mother says *sab theek
+hai*. Everything's fine.
 
 So I built one sentence a day: *"Amma's Friday looked normal. Up around 7:10, a
 trip to the shop, phone on charge by evening."*
@@ -18,11 +18,11 @@ scheduling problem. An EventBridge rule sweeps every ten minutes and asks one
 question per person. The heart of the system is a clock, not a listener.
 
 **Two clocks, not one.** I first compared "last signal of any kind" against a
-threshold. Wrong, and dangerously so. A phone that's switched off has an
-ordinary explanation. A phone that is on, connected, and reporting for thirty
-hours while no human has touched it does not — and my single clock couldn't see
-it, because the phone was cheerfully checking in the whole time. So:
-`lastSeenAt` (the phone is alive) and `lastWakingAt` (someone is there).
+threshold. Dangerously wrong. A phone that's switched off has an ordinary
+explanation. A phone that is on, connected and reporting for thirty hours while
+no human has touched it does not — and my single clock couldn't see it, because
+the phone was checking in the whole time. So: `lastSeenAt` (the phone is alive)
+and `lastWakingAt` (someone is there).
 
 **The Step Functions trick I'd reuse anywhere.** When the sweep finds something,
 it starts a ladder: ask *her* first, twice, before anyone else learns there was
