@@ -133,7 +133,55 @@ you speak - it should read before you explain it.*
 
 ---
 
-## Plan B - no phone, 2 minutes 30
+## USE THIS ONE - no push, and it is honest
+
+Push does not work on this build: an Android standalone app needs FCM
+credentials to obtain an Expo push token, and there are none configured, so
+every account enrolled with a null token. Do not say the word "notification"
+in the video.
+
+You do not need it. The family screen polls every ten seconds and visibly
+changes when an escalation opens, so the alert still arrives on camera - it
+just arrives in the app instead of on the lock screen.
+
+Replace **1:05 - 1:55** with this, done entirely in two browser tabs:
+
+*Tab 3 (family view, paired to your phone or to a TRYME9 demo family).
+Demo controls, "Run a quiet morning". Then switch to tab 1 and wait.*
+
+> **Say this:** A morning where nothing happens. She hasn't picked up her
+> phone, and she's normally up by half seven.
+>
+> Watch who gets told first.
+
+*Tab 1 - her own screen. Point at it.*
+
+> **Say this:** Her. Not me. She's asked twice, quietly, before anyone in her
+> family learns there was ever a question.
+
+*Tap "I am fine today" on her screen.*
+
+> **Say this:** One tap, and it stands down. I was never told. That matters,
+> because a system that cries wolf gets uninstalled by the person it's meant
+> to protect - and then it protects nobody.
+
+*Now run it again and this time do not answer. Switch to the family screen
+and let it poll. The sentence changes to the concern, and the call button
+appears.*
+
+> **Say this:** If she doesn't answer, then I'm told - and I'm given her
+> number, because hunting for the dialler while you're frightened is its own
+> small cruelty. If I don't answer either, it texts her neighbour. I'm a
+> thousand kilometres away and can do nothing. The neighbour is forty feet
+> away and can knock on the door.
+
+If a judge asks about notifications afterwards, the true answer is short:
+the escalation ladder is real and runs on Step Functions; push delivery needs
+FCM credentials I didn't have time to provision, so the app polls instead.
+
+---
+
+## Older Plan B - no phone, 2 minutes 30
 
 If push is unreliable on the night, cut section 1:05-1:55 down to this and do
 it entirely in tab 1 with the `TRYME9` demo family:
