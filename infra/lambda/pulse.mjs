@@ -152,7 +152,9 @@ export async function handler(event) {
   return ok({
     name: member.name,
     // The watcher gets a sentence and a verdict. Never the raw signal list.
-    pulse: phrase(minutesAgo(member.lastWakingAt ?? member.lastSeenAt)),
+    // || rather than ??, so a blank clock falls through to the other clock
+    // instead of reporting "no signal yet" about a phone in active use.
+    pulse: phrase(minutesAgo(member.lastWakingAt || member.lastSeenAt)),
     lastSeenAt: member.lastSeenAt ?? null,
     lastWakingAt: member.lastWakingAt ?? null,
     // Null on an ordinary day. The screen stays quiet unless there is something

@@ -102,14 +102,30 @@ export async function handler(event) {
     member.lastWakingAt ?? ""
   );
 
-  await doc.send(
-    new UpdateCommand({
-      TableName: TABLE,
-      Key: memberKey(memberId),
-      UpdateExpression: "SET lastSeenAt = :l, lastWakingAt = :w",
-      ExpressionAttributeValues: { ":l": latestAny, ":w": latestWaking },
-    })
-  );
+  // Only write a clock we actually have. Writing an empty string here is how a
+  // blank clock gets into the table in the first place, and a blank clock reads
+  // as infinitely stale downstream.
+  const sets = [];
+  const values = {};
+  if (latestAny) {
+    sets.push("lastSeenAt = :l");
+    values[":l"] = latestAny;
+  }
+  if (latestWaking) {
+    sets.push("lastWakingAt = :w");
+    values[":w"] = latestWaking;
+  }
+
+  if (sets.length > 0) {
+    await doc.send(
+      new UpdateCommand({
+        TableName: TABLE,
+        Key: memberKey(memberId),
+        UpdateExpression: `SET ${sets.join(", ")}`,
+        ExpressionAttributeValues: values,
+      })
+    );
+  }
 
   // Any sign of life closes an open incident. This is how the escalation ladder
   // learns it can stand down without the watcher ever being told.

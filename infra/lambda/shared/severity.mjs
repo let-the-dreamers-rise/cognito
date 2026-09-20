@@ -56,8 +56,13 @@ export function assess({ member, now, expectedBy, nowMinutes, sawWakingToday }) 
 
   // Fall back to enrolment so an unset clock means "nothing since we met",
   // rather than "nothing, ever, infinitely far back".
-  const sinceWaking = hoursSince(member.lastWakingAt ?? member.createdAt, now);
-  const sinceDevice = hoursSince(member.lastSeenAt ?? member.createdAt, now);
+  //
+  // Deliberately || and not ??. A clock can reach here as an empty string, and
+  // ?? only catches null and undefined - so a blank clock would sail past the
+  // fallback into hoursSince, read as Infinity, and assess the quietest member
+  // in the system as two days silent on the very next sweep.
+  const sinceWaking = hoursSince(member.lastWakingAt || member.createdAt, now);
+  const sinceDevice = hoursSince(member.lastSeenAt || member.createdAt, now);
 
   if (sinceWaking >= 48) return SEVERITY.CRITICAL_48H;
   if (sinceWaking >= 24) return SEVERITY.CRITICAL_24H;

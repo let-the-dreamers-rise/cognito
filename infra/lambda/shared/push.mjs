@@ -8,7 +8,11 @@ const EXPO_PUSH_URL = "https://exp.host/--/api/v2/push/send";
  * not have the app installed. Failures here must never fail an escalation.
  */
 export async function pushToExpo(messages) {
-  const valid = messages.filter((m) => m.to?.startsWith("ExponentPushToken"));
+  // Expo has shipped both spellings. Matching only one of them would drop every
+  // message silently and report a rung as delivered to nobody.
+  const valid = messages.filter(
+    (m) => m.to?.startsWith("ExponentPushToken") || m.to?.startsWith("ExpoPushToken")
+  );
   if (valid.length === 0) {
     return { requested: 0, delivered: 0, failed: 0, skipped: messages.length };
   }

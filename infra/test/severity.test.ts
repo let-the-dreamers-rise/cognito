@@ -158,6 +158,36 @@ describe('how politely to behave', () => {
   });
 });
 
+describe('a clock that was written as an empty string', () => {
+  // ?? only falls back on null and undefined. An empty string sails past it
+  // into hoursSince, which treats any falsy value as Infinity - so a blank
+  // clock reads as infinitely stale and the politest member in the system is
+  // assessed as two days silent.
+  it('does not read a blank waking clock as two days of silence', () => {
+    expect(
+      check(
+        member({
+          lastWakingAt: '',
+          lastSeenAt: hoursAgo(0.1),
+          createdAt: hoursAgo(3),
+        })
+      )
+    ).toBeNull();
+  });
+
+  it('does not read a blank device clock as a dark phone', () => {
+    expect(
+      check(
+        member({
+          lastWakingAt: hoursAgo(0.1),
+          lastSeenAt: '',
+          createdAt: hoursAgo(3),
+        })
+      )
+    ).toBeNull();
+  });
+});
+
 describe('what the family is told', () => {
   it('speaks plainly and never leaks a severity code', () => {
     for (const severity of Object.values(SEVERITY)) {
