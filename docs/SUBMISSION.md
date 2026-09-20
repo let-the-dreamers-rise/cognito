@@ -178,11 +178,10 @@ claim that does not survive a question.
 - [x] Does the daily sentence come from Bedrock, or the template fallback?
       **The fallback.** Account quota is `0` tokens/day and not adjustable.
       Stated plainly in the README and above; the API reports `writtenBy`.
-- [x] Has a push notification actually landed on a physical phone? **No, and
-      it cannot on this build.** Android standalone apps need FCM credentials
-      to obtain an Expo push token; none are configured, so every enrolment
-      stored a null token. The ladder runs correctly and the app polls, so the
-      family screen still changes - but do not claim notifications work.
+- [x] Has a push notification actually landed on a physical phone? **Yes.**
+      FCM V1 credentials are configured and a real device registered
+      ExponentPushToken[...] at 17:40 UTC. The nudge arrives on the lock
+      screen and tapping it stands the ladder down.
 - [x] Has the Android build been compiled? **Yes.** The native SMS module
       builds cleanly on EAS; APK linked above. Whether it has been *installed*
       and exercised on a physical handset is the line below.

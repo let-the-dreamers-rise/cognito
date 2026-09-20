@@ -1,210 +1,149 @@
-# Three minutes, word for word
+# Sab Theek - 3 minute script
 
-Read the **Say this** lines aloud. Everything in *italics* is what you do on
-screen, not something you read out.
-
-Speak slower than feels natural. Do not apologise, do not say "basically",
-do not say "so yeah". If you fluff a line, stop, breathe, say it again from the
-start of that line - you can cut it.
+Read the **bold** lines aloud. *Italics* are what you do, not what you say.
+Push notifications work, so the lock-screen moment is the centre of the video.
 
 ---
 
-## Before you hit record
+## Setup on the one phone
 
-Have these open and already loaded, so nothing loads on camera:
+The app and Chrome have separate storage, so the same phone can be both sides.
 
-1. **Browser tab 1** - the app, already paired to a demo family via `TRYME9`,
-   sitting on the family screen with a seeded week showing.
-2. **Browser tab 2** - the AWS console on the Step Functions page for
-   `EscalationLadder`, execution list open.
-3. **Your phone** - Sab Theek installed, set up as "I live on my own",
-   notifications allowed, practice alerts turned on, screen **locked**.
-4. **Browser tab 3** - the app in a second browser profile, paired to your
-   phone's real code, demo controls visible.
+1. **Sab Theek app** - "I live on my own" - name her - allow notifications.
+   Note the 6-letter code.
+2. In the app: **"What they see"** - turn on **Allow practice alerts**.
+3. **Chrome on the same phone** - the deployed URL - "Someone I love does" -
+   enter that code.
+4. Swipe down - **Screen Record**, microphone ON.
 
-If the phone push does not land within about twenty seconds when you rehearse,
-**cut the phone entirely** and do the whole demo in tab 1. Plan B is at the
-bottom. A clean three minutes beats a brave failure.
+Rehearse steps in the 1:20 block once before the real take.
+
+Record the architecture section separately on the laptop. That is the only cut.
 
 ---
 
 ## 0:00 - 0:25   The problem
 
-*No slides. Your face, or just the app sitting still.*
+*Phone screen still, or your face.*
 
-> **Say this:** My parents live about a thousand kilometres from me. I'm not
-> frightened every day. But some mornings I am, and calling to ask doesn't
-> help - because whatever is actually happening, she says *sab theek hai*.
-> Everything's fine.
->
-> So I built the thing I actually wanted. Not a dashboard. One sentence a day.
+**"My mother lives alone, about a thousand kilometres from me. I'm not
+frightened every day. But some mornings I am, and calling to ask doesn't help,
+because whatever is actually happening she says the same four words. Sab theek
+hai. Everything's fine.**
 
----
-
-## 0:25 - 1:05   The product
-
-*Tab 1. The family screen. Let the sentence sit on screen for a beat before
-you speak - it should read before you explain it.*
-
-> **Say this:** This is my mother's Sunday. She was up around half seven, she
-> went to the shop, her phone went on charge in the evening.
->
-> That's the whole product. There is no chart anywhere in this app, and that's
-> deliberate - a dashboard hands you the anxiety back and asks you to
-> interpret it. A sentence resolves it.
-
-*Scroll down slowly to the week strip. Tap one of the days.*
-
-> **Say this:** A week, so you can see a pattern rather than one day out of
-> context. Tap a day and you get that day's sentence. That's as much detail as
-> this app will ever give you.
+**So I built the thing I actually wanted. Not a dashboard. One sentence a
+day."**
 
 ---
 
-## 1:05 - 1:55   The part nobody builds
+## 0:25 - 0:50   The sentence
 
-*Tab 3 (or the phone). Demo controls. Tap "Run a quiet morning".*
+*Open Chrome - the family side. Let the sentence sit for a beat before you
+speak.*
 
-> **Say this:** Now - a morning where nothing happens. She hasn't picked up her
-> phone, and she's normally up by half seven.
->
-> Watch who gets told first.
+**"This is my mother's Sunday. She was up around half seven, she went to the
+shop, her phone went on charge in the evening.**
 
-*Phone lights up on the lock screen. Hold it to the camera.*
-
-> **Say this:** Her. Not me. She gets asked twice, quietly, before anyone in
-> her family learns there was ever a question. Most mornings it ends right
-> here and nobody is ever alarmed.
-
-*Tap the notification. The app opens; the alert clears.*
-
-> **Say this:** One tap, and it stands down. I was never told. That matters,
-> because a system that cries wolf gets uninstalled by the person it's meant
-> to protect - and then it protects nobody.
-
-*Let the ladder run on to the end in tab 3.*
-
-> **Say this:** If she doesn't answer, then I'm told. And if I don't answer
-> either, it texts her neighbour - because I'm a thousand kilometres away and
-> can do nothing, and the neighbour is forty feet away and can knock on the
-> door.
+**That's the whole product. There is no chart anywhere in this app, and that's
+deliberate. A dashboard hands you the anxiety back and asks you to interpret
+it. A sentence resolves it."**
 
 ---
 
-## 1:55 - 2:30   How it's built
+## 0:50 - 1:15   Her side
 
-*Tab 2. The Step Functions graph, mid-execution, rungs lit up.*
+*Switch to the Sab Theek app.*
 
-> **Say this:** Here's the interesting problem. The event I care about is the
-> one that never arrives. You cannot catch an absence with an event handler -
-> nothing fires. So it needs a clock.
->
-> EventBridge sweeps every ten minutes and asks one question per person:
-> given what we know of *this* person, is anything wrong right now? Not a
-> population average - the median of her own last three weeks. Step Functions
-> runs the ladder, with a choice at the top that sends serious cases straight
-> past the polite rungs. DynamoDB, Lambda, SNS for the neighbour's text,
-> Amplify for the web build. All of it CDK, in TypeScript.
+**"And this is what she sees. It doesn't open on her own status. It opens on
+us. 'Ashwin looked in on you this morning.'**
 
-*Optional, only if you're ahead of time - show the two clocks in the README.*
+**If this app opened by telling a seventy-year-old woman how closely she's
+being watched, she'd delete it. Instead it tells her that her children thought
+about her today, which is the only reason she'll ever open it twice.**
 
-> **Say this:** The thing I got wrong first time was using one clock. A phone
-> that's switched off has an ordinary explanation. A phone that's on, and
-> connected, and untouched all day does not. Those are two different
-> questions, and I was asking one.
+**She reads the exact same sentence her family reads. And that button just says
+'Ask them to call me', because the hesitation was never wanting to call. It's
+'he must be busy'."**
 
 ---
 
-## 2:30 - 3:00   The honest bit, and the link
+## 1:15 - 2:00   The part nobody builds
 
-*Back to tab 1. The sentence on screen.*
+*Chrome - Demo controls - "Run a quiet morning". Then press the power button
+and put the phone on the lock screen.*
 
-> **Say this:** Two honest things. Bedrock writes that daily sentence - the
-> call is live in the code - but this account's token quota is zero and
-> can't be raised, so what you're reading came from the deterministic
-> fallback. The API says which one wrote it rather than letting me pretend.
->
-> And a late audit of my own code found eight bugs that were all silent -
-> the system would have looked like it was watching someone while doing
-> nothing at all. Those are written up in the README.
->
-> It's running on AWS right now, the Android build is linked, and the whole
-> thing is one question: was today an ordinary day.
+**"Now a morning where nothing happens. She hasn't picked up her phone, and
+she's normally up by half seven.**
 
----
+**Watch who gets told first."**
 
-## USE THIS ONE - no push, and it is honest
+*The notification arrives on the lock screen. Say nothing for two seconds and
+let the viewer read it.*
 
-Push does not work on this build: an Android standalone app needs FCM
-credentials to obtain an Expo push token, and there are none configured, so
-every account enrolled with a null token. Do not say the word "notification"
-in the video.
+**"Her. Not me. She's asked twice, quietly, before anyone in her family learns
+there was ever a question."**
 
-You do not need it. The family screen polls every ten seconds and visibly
-changes when an escalation opens, so the alert still arrives on camera - it
-just arrives in the app instead of on the lock screen.
+*Tap the notification. The app opens. Tap "I am fine today".*
 
-Replace **1:05 - 1:55** with this, done entirely in two browser tabs:
+**"One tap, and it stands down. I was never told. That matters, because a
+system that cries wolf gets uninstalled by the person it's meant to protect,
+and then it protects nobody."**
 
-*Tab 3 (family view, paired to your phone or to a TRYME9 demo family).
-Demo controls, "Run a quiet morning". Then switch to tab 1 and wait.*
+*Back to Chrome. Run a quiet morning again. This time do not answer. Let the
+family screen update.*
 
-> **Say this:** A morning where nothing happens. She hasn't picked up her
-> phone, and she's normally up by half seven.
->
-> Watch who gets told first.
-
-*Tab 1 - her own screen. Point at it.*
-
-> **Say this:** Her. Not me. She's asked twice, quietly, before anyone in her
-> family learns there was ever a question.
-
-*Tap "I am fine today" on her screen.*
-
-> **Say this:** One tap, and it stands down. I was never told. That matters,
-> because a system that cries wolf gets uninstalled by the person it's meant
-> to protect - and then it protects nobody.
-
-*Now run it again and this time do not answer. Switch to the family screen
-and let it poll. The sentence changes to the concern, and the call button
-appears.*
-
-> **Say this:** If she doesn't answer, then I'm told - and I'm given her
-> number, because hunting for the dialler while you're frightened is its own
-> small cruelty. If I don't answer either, it texts her neighbour. I'm a
-> thousand kilometres away and can do nothing. The neighbour is forty feet
-> away and can knock on the door.
-
-If a judge asks about notifications afterwards, the true answer is short:
-the escalation ladder is real and runs on Step Functions; push delivery needs
-FCM credentials I didn't have time to provision, so the app polls instead.
+**"If she doesn't answer, then I'm told, and I'm handed her number. And if I
+don't answer either, it texts her neighbour. I'm a thousand kilometres away and
+can do nothing. The neighbour is forty feet away and can knock on the door."**
 
 ---
 
-## Older Plan B - no phone, 2 minutes 30
+## 2:00 - 2:40   How it's built
 
-If push is unreliable on the night, cut section 1:05-1:55 down to this and do
-it entirely in tab 1 with the `TRYME9` demo family:
+*Laptop recording. Step Functions graph, mid-execution.*
 
-*Demo controls, "Run two days of silence".*
+**"Here's the interesting problem. The event I care about is the one that never
+arrives. You cannot catch an absence with an event handler, because nothing
+fires. So it needs a clock.**
 
-> **Say this:** Two days without touching the phone. No polite rungs here -
-> at this point asking her nicely is the wrong behaviour, so it tells the
-> family and the neighbour at once.
+**EventBridge sweeps every ten minutes and asks one question per person: given
+what we know of this person, is anything wrong right now? Not a population
+average, the median of her own last three weeks.**
 
-*Show the Step Functions execution skipping straight to the alarm rungs.*
-
-> **Say this:** Same ladder, different route through it, decided at the top.
-
-Then go straight to **1:55 - How it's built**.
+**Step Functions runs the ladder, with a choice at the top that sends serious
+cases straight past the polite rungs. DynamoDB, Lambda, SNS for the neighbour's
+text, Amplify for the web build. All of it CDK, in TypeScript."**
 
 ---
 
-## Lines to cut first if you're over time
+## 2:40 - 3:00   Honest, then the link
 
-1. The two-clocks paragraph at 2:20.
-2. The week strip at 0:50.
-3. The eight-bugs line at 2:45.
+*Back to the sentence.*
 
-Never cut: *she is asked first*, and *absence is not an event*. Those are the
-two ideas that make this different from a tracker.
+**"Two honest things. Bedrock writes that daily sentence and the call is live in
+the code, but this account's token quota is zero and can't be raised, so what
+you're reading came from the deterministic fallback. The API reports which one
+wrote it rather than letting me pretend.**
+
+**And auditing my own code late on found six bugs that were all silent. The
+system would have looked like it was watching someone while doing nothing at
+all.**
+
+**It's running on AWS right now. The whole thing is one question: was today an
+ordinary day."**
+
+---
+
+## If you run long, cut in this order
+
+1. The "ask them to call me" line at 1:10
+2. The six-bugs line at 2:50
+3. The second escalation at 1:50 - keep the first one
+
+**Never cut:** *she is asked first*, and *absence is not an event*.
+
+## Rules
+
+- No intro animation, no music under speech, no reading the README aloud.
+- Two seconds of silence while the notification lands. Let it breathe.
+- Say the Bedrock limitation. It costs fifteen seconds and reads as rigour.
