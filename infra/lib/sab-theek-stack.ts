@@ -9,6 +9,7 @@ import * as targets from 'aws-cdk-lib/aws-events-targets';
 import * as scheduler from 'aws-cdk-lib/aws-scheduler';
 import * as sfn from 'aws-cdk-lib/aws-stepfunctions';
 import * as tasks from 'aws-cdk-lib/aws-stepfunctions-tasks';
+import * as logs from 'aws-cdk-lib/aws-logs';
 import * as apigw from 'aws-cdk-lib/aws-apigatewayv2';
 import { HttpLambdaIntegration } from 'aws-cdk-lib/aws-apigatewayv2-integrations';
 
@@ -23,9 +24,6 @@ import { HttpLambdaIntegration } from 'aws-cdk-lib/aws-apigatewayv2-integrations
 const BEDROCK_MODEL_ID =
   process.env.BEDROCK_MODEL_ID ?? 'us.amazon.nova-lite-v1:0';
 
-/** Real escalations wait twenty minutes a rung. The demo passes its own value per execution. */
-const STEP_WAIT_SECONDS = '1200';
-
 export class SabTheekStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
@@ -36,7 +34,10 @@ export class SabTheekStack extends cdk.Stack {
       sortKey: { name: 'sk', type: dynamodb.AttributeType.STRING },
       billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
       timeToLiveAttribute: 'ttl',
-      removalPolicy: cdk.RemovalPolicy.DESTROY,
+      // Losing this table loses every learned routine and every pairing. A
+      // stack replacement must not be able to take it with it.
+      pointInTimeRecoverySpecification: { pointInTimeRecoveryEnabled: true },
+      removalPolicy: cdk.RemovalPolicy.RETAIN,
     });
 
     table.addGlobalSecondaryIndex({
@@ -61,6 +62,13 @@ export class SabTheekStack extends cdk.Stack {
         timeout: cdk.Duration.seconds(timeout),
         memorySize: 256,
         environment: { TABLE_NAME: table.tableName, ...env },
+        // Logs default to never expiring. For a product that argues the signal
+        // trail should expire, letting member ids accumulate in CloudWatch
+        // forever would contradict the thing the product claims.
+        logGroup: new logs.LogGroup(this, `${id}Logs`, {
+          retention: logs.RetentionDays.ONE_MONTH,
+          removalPolicy: cdk.RemovalPolicy.DESTROY,
+        }),
       });
       table.grantReadWriteData(f);
       return f;
@@ -92,8 +100,33 @@ export class SabTheekStack extends cdk.Stack {
 
     // ---- The escalation ladder -------------------------------------------
     // She is asked first, twice, before anyone else is told anything at all.
+
+    // A rung that throws must never leave the incident open. The sweep skips
+    // any member with an open incident, so one failed execution would retire
+    // that person from the system silently and permanently.
+    const markFailed = new tasks.LambdaInvoke(this, 'MarkIncidentFailed', {
+      lambdaFunction: escalateFn,
+      payload: sfn.TaskInput.fromObject({
+        action: 'failed',
+        memberId: sfn.JsonPath.stringAt('$.memberId'),
+        incidentId: sfn.JsonPath.stringAt('$.incidentId'),
+      }),
+      payloadResponseOnly: true,
+      resultPath: sfn.JsonPath.DISCARD,
+    }).next(
+      new sfn.Fail(this, 'LadderFailed', {
+        cause: 'A rung failed. The incident was closed so the next sweep can retry.',
+      })
+    );
+
+    const guarded = <T extends tasks.LambdaInvoke>(task: T): T => {
+      task.addCatch(markFailed, { resultPath: '$.error' });
+      return task;
+    };
+
     const rung = (id: string, action: string) =>
-      new tasks.LambdaInvoke(this, id, {
+      guarded(
+        new tasks.LambdaInvoke(this, id, {
         lambdaFunction: escalateFn,
         payload: sfn.TaskInput.fromObject({
           action,
@@ -101,21 +134,24 @@ export class SabTheekStack extends cdk.Stack {
           incidentId: sfn.JsonPath.stringAt('$.incidentId'),
           severity: sfn.JsonPath.stringAt('$.severity'),
         }),
-        payloadResponseOnly: true,
-        resultPath: sfn.JsonPath.DISCARD,
-      });
+          payloadResponseOnly: true,
+          resultPath: sfn.JsonPath.DISCARD,
+        })
+      );
 
     const check = (id: string) =>
-      new tasks.LambdaInvoke(this, id, {
-        lambdaFunction: escalateFn,
-        payload: sfn.TaskInput.fromObject({
-          action: 'check',
-          memberId: sfn.JsonPath.stringAt('$.memberId'),
-          incidentId: sfn.JsonPath.stringAt('$.incidentId'),
-        }),
-        payloadResponseOnly: true,
-        resultPath: '$.check',
-      });
+      guarded(
+        new tasks.LambdaInvoke(this, id, {
+          lambdaFunction: escalateFn,
+          payload: sfn.TaskInput.fromObject({
+            action: 'check',
+            memberId: sfn.JsonPath.stringAt('$.memberId'),
+            incidentId: sfn.JsonPath.stringAt('$.incidentId'),
+          }),
+          payloadResponseOnly: true,
+          resultPath: '$.check',
+        })
+      );
 
     const wait = (id: string) =>
       new sfn.Wait(this, id, {
@@ -142,6 +178,32 @@ export class SabTheekStack extends cdk.Stack {
       .next(rung('AlarmTheNeighbour', 'notifyLocal'))
       .next(rung('MarkCriticalEscalated', 'escalated'));
 
+    // Unlike the other rungs, this one's result is kept: the ladder needs to
+    // know whether any phone actually buzzed.
+    const tellFamily = guarded(
+      new tasks.LambdaInvoke(this, 'TellTheFamily', {
+        lambdaFunction: escalateFn,
+        payload: sfn.TaskInput.fromObject({
+          action: 'notifyChild',
+          memberId: sfn.JsonPath.stringAt('$.memberId'),
+          incidentId: sfn.JsonPath.stringAt('$.incidentId'),
+          severity: sfn.JsonPath.stringAt('$.severity'),
+        }),
+        payloadResponseOnly: true,
+        resultPath: '$.delivery',
+      })
+    );
+
+    // Waiting twenty minutes after telling nobody is worse than not waiting at
+    // all. If every token was stale or missing, hand straight to the neighbour.
+    const afterTellingFamily = new sfn.Choice(this, 'DidAnyoneActuallyGetIt')
+      .when(sfn.Condition.numberEquals('$.delivery.delivered', 0), notifyLocal)
+      .otherwise(
+        wait('WaitAfterFamily')
+          .next(check('CheckAfterFamily'))
+          .next(answered('AnsweredFamily', notifyLocal))
+      );
+
     const politeLadder = rung('NudgeHer', 'nudge')
       .next(wait('WaitAfterNudge'))
       .next(check('CheckAfterNudge'))
@@ -151,15 +213,7 @@ export class SabTheekStack extends cdk.Stack {
           rung('RingThrough', 'ring')
             .next(wait('WaitAfterRing'))
             .next(check('CheckAfterRing'))
-            .next(
-              answered(
-                'AnsweredRing',
-                rung('TellTheFamily', 'notifyChild')
-                  .next(wait('WaitAfterFamily'))
-                  .next(check('CheckAfterFamily'))
-                  .next(answered('AnsweredFamily', notifyLocal))
-              )
-            )
+            .next(answered('AnsweredRing', tellFamily.next(afterTellingFamily)))
         )
       );
 
@@ -184,10 +238,18 @@ export class SabTheekStack extends cdk.Stack {
     const sweepFn = makeFn(
       'SweepFn',
       'sweep.handler',
-      { LADDER_ARN: ladder.stateMachineArn, STEP_WAIT_SECONDS },
+      { LADDER_ARN: ladder.stateMachineArn },
       60
     );
     ladder.grantStartExecution(sweepFn);
+    // Needed to retire a running ladder when a later sweep decides things have
+    // got worse, rather than running a second one alongside it.
+    sweepFn.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ['states:StopExecution'],
+        resources: [`${ladder.stateMachineArn}:*`],
+      })
+    );
 
     new events.Rule(this, 'AbsenceSweep', {
       description: 'Asks once per interval whether an ordinary day has happened yet',

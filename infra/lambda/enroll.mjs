@@ -40,6 +40,10 @@ async function enrolParent(body) {
     travelUntil: null,
     localContact: null,
     baseline: { samples: [], firstActivityMedian: null },
+    // Seed both clocks at enrolment. An unset clock reads as infinitely stale,
+    // which assessed a brand new member as two days silent on the next sweep.
+    lastSeenAt: now,
+    lastWakingAt: now,
     createdAt: now,
   });
 

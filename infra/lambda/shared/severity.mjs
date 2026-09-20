@@ -36,13 +36,28 @@ const hoursSince = (iso, now) =>
   iso ? (now.getTime() - new Date(iso).getTime()) / 3600000 : Infinity;
 
 /**
+ * How long we must have known someone before we are willing to say anything is
+ * wrong. Without this an unset clock reads as infinitely stale and a member who
+ * enrolled ten minutes ago is assessed as two days silent on the next sweep.
+ */
+export const MIN_OBSERVATION_HOURS = 2;
+
+/**
  * Returns a severity, or null when there is nothing to raise. Long silences are
  * checked first: someone who has not touched their phone in two days is not
  * merely late this morning.
  */
 export function assess({ member, now, expectedBy, nowMinutes, sawWakingToday }) {
-  const sinceWaking = hoursSince(member.lastWakingAt, now);
-  const sinceDevice = hoursSince(member.lastSeenAt, now);
+  // A settling period. We have no evidence about a member we have only just met,
+  // and absence of evidence is exactly what this system would otherwise read as
+  // evidence of absence.
+  const knownForHours = hoursSince(member.createdAt, now);
+  if (knownForHours < MIN_OBSERVATION_HOURS) return null;
+
+  // Fall back to enrolment so an unset clock means "nothing since we met",
+  // rather than "nothing, ever, infinitely far back".
+  const sinceWaking = hoursSince(member.lastWakingAt ?? member.createdAt, now);
+  const sinceDevice = hoursSince(member.lastSeenAt ?? member.createdAt, now);
 
   if (sinceWaking >= 48) return SEVERITY.CRITICAL_48H;
   if (sinceWaking >= 24) return SEVERITY.CRITICAL_24H;

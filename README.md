@@ -159,9 +159,80 @@ cd app && npx expo export --platform web
 
 ---
 
+## What a late audit found
+
+With a day left I stopped adding features and audited what was already
+deployed. It found eight live bugs, and **every one of them was silent** - the
+system reported success while doing the wrong thing. In a product whose job is
+to notice that nothing happened, that is not a coincidence: the absence of an
+error is exactly what normal looks like, so a broken detector and a quiet week
+are indistinguishable from the outside.
+
+The four that could make the system stop watching someone entirely:
+
+- **A stranded incident retired a member permanently.** The sweep skips anyone
+  with an open incident. No rung had a catch, so one DynamoDB blip mid-ladder
+  left the incident open forever - and that member was then skipped every ten
+  minutes, logged at info, reported as success. If the stranded incident was
+  critical, nothing could ever raise them again. Now rungs catch, incidents age
+  out after the state machine's own timeout, and the next sweep reopens.
+- **The ladder failed open into silence.** `checkResponded` asked whether the
+  status was anything other than `open`, so a missing record read as *she
+  answered* and the escalation ended having told nobody. An unknown state must
+  escalate, never reassure.
+- **Incident ids were random UUIDs**, but every reader asks DynamoDB for the
+  newest few and DynamoDB sorts lexically. Past five lifetime incidents,
+  "the open incident" became an arbitrary pick - so a sign of life could fail
+  to close the very incident it disproved. Ids are now time-ordered.
+- **A worsening case started a second ladder without stopping the first**, so
+  two executions nudged, rang and texted the neighbour independently for one
+  absence. The earlier one is now superseded and stopped.
+
+And four that quietly corrupted the data the model runs on: a query that read
+newest-first with a limit, so "the first signal of the day" was the earliest of
+the most recent 200 - and the nightly job learns the baseline from exactly that
+value; step counts summed instead of maxed, turning a walk to the shop into six
+figures; device timestamps never clamped, so one fast clock put the waking
+clock in the future and silenced that member for good; and a native module
+resolved through a deprecated API that returns undefined, swallowed by a bare
+catch, so a signal could appear to work while never once firing.
+
 ## Honest limitations
 
 These are real and stated deliberately rather than hidden.
+
+- **There is no alarming.** If the sweep Lambda started throwing, nothing would
+  tell anyone. The right answer is not a dashboard, it is a synthetic canary
+  member that is never fed signals and therefore escalates every single day:
+  if its daily escalation stops arriving, the whole path is broken. Silence
+  from the canary is the alarm. That is the only monitor that tests what this
+  product actually promises.
+- **The sweep is O(all members) every ten minutes**, against a GSI whose
+  partition key is the constant `ALL_MEMBERS` - one physical DynamoDB
+  partition, and every heartbeat replicates a write into it. Correct to roughly
+  10k members. The fix is a sharded due-index (`gsi1pk = DUE#<shard>`,
+  `gsi1sk = nextCheckDueAt`) so the sweep reads only the members actually at
+  risk rather than all of them.
+- **Notification delivery is better than best-effort but not yet reliable.**
+  Expo tickets are now parsed, and a rung that reaches nobody hands straight to
+  the neighbour instead of waiting. But receipts are not polled, dead tokens
+  are not reaped, and **a watcher's push token cannot be refreshed after
+  enrolment** - so the day a family member reinstalls the app, that rung stops
+  reaching them. Production needs SQS with a DLQ and receipt polling.
+- **SMS to Indian numbers needs TRAI DLT registration.** SNS returns a message
+  id and the carrier drops it. The neighbour rung - the part of this design I
+  am proudest of - does not work in India without that paperwork, and it fails
+  silently.
+- **Pairing codes are not rate limited.** Six characters from a 25-character
+  alphabet, and the API endpoint ships in the public bundle. A patient script
+  could eventually become someone's watcher.
+- **Single region, `us-east-1`, no staging.** `ap-south-1` is right for Indian
+  families and for DPDP residency; it would also mean swapping the Nova
+  inference profile from the `us.` to the `apac.` prefix.
+- **Cost is not where you would guess.** Bedrock is about $0.60/month at a
+  thousand families. The expense is DynamoDB writes, and most of those rows
+  were heartbeats that nothing ever read - which is why heartbeats are no
+  longer persisted at all.
 
 - **The UPI signal needs a native Android module.** Reading transaction SMS is
   not reachable from managed Expo. The module is scoped to emit

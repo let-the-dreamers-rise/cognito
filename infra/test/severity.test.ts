@@ -108,10 +108,34 @@ describe('escalating silence', () => {
     ).toBe(SEVERITY.CRITICAL_48H);
   });
 
-  it('treats a member we have never heard from as the worst case', () => {
+  it('treats a long-enrolled member we have never heard from as critical', () => {
     expect(
-      check(member({ lastWakingAt: null, lastSeenAt: null }), { sawWakingToday: false })
+      check(
+        member({
+          lastWakingAt: null,
+          lastSeenAt: null,
+          createdAt: hoursAgo(72),
+        }),
+        { sawWakingToday: false }
+      )
     ).toBe(SEVERITY.CRITICAL_48H);
+  });
+
+  it('does not cry critical over someone who enrolled ten minutes ago', () => {
+    // Regression: an unset clock read as infinitely stale, so a brand new
+    // member was assessed critical48 on the very next sweep. A family's first
+    // experience of this product must not be "Amma has not touched her phone
+    // in two days" ten minutes after installing it.
+    expect(
+      check(
+        member({
+          lastWakingAt: null,
+          lastSeenAt: null,
+          createdAt: new Date(NOW.getTime() - 10 * 60_000).toISOString(),
+        }),
+        { sawWakingToday: false }
+      )
+    ).toBeNull();
   });
 });
 

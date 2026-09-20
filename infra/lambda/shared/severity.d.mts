@@ -23,10 +23,14 @@ export function isCritical(severity: string | null | undefined): boolean;
 /** Seconds between rungs. Urgency shortens the wait. */
 export function waitSecondsFor(severity: string | null | undefined): number;
 
+export const MIN_OBSERVATION_HOURS: number;
+
 export type AssessInput = {
   member: {
     name?: string;
     baseline?: Baseline | null;
+    /** Enrolment time. Bounds every staleness calculation. */
+    createdAt?: string | null;
     /** Any signal at all: proves the phone is on. */
     lastSeenAt?: string | null;
     /** A signal only a person makes: proves someone is there. */

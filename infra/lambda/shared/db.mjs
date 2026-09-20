@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import {
   DynamoDBDocumentClient,
@@ -32,16 +33,34 @@ export async function putItem(item) {
   return item;
 }
 
+/**
+ * Every member the sweep must consider.
+ *
+ * Paginated deliberately: a DynamoDB query page caps at 1MB, so a single-page
+ * read silently stops returning members somewhere past a couple of thousand -
+ * and a sweep that checks 1,400 of 2,000 people reports success while the rest
+ * go unwatched. In a system whose failure mode is "nobody notices", a silent
+ * truncation is the worst possible shape of bug.
+ */
 export async function listParents() {
-  const res = await doc.send(
-    new QueryCommand({
-      TableName: TABLE,
-      IndexName: "gsi1",
-      KeyConditionExpression: "gsi1pk = :p",
-      ExpressionAttributeValues: { ":p": ALL_MEMBERS },
-    })
-  );
-  return (res.Items ?? []).filter((m) => m.role === "parent" && m.enabled !== false);
+  const members = [];
+  let startKey;
+
+  do {
+    const res = await doc.send(
+      new QueryCommand({
+        TableName: TABLE,
+        IndexName: "gsi1",
+        KeyConditionExpression: "gsi1pk = :p",
+        ExpressionAttributeValues: { ":p": ALL_MEMBERS },
+        ExclusiveStartKey: startKey,
+      })
+    );
+    members.push(...(res.Items ?? []));
+    startKey = res.LastEvaluatedKey;
+  } while (startKey);
+
+  return members.filter((m) => m.role === "parent" && m.enabled !== false);
 }
 
 /**
@@ -109,7 +128,37 @@ export async function watchersOf(memberId) {
   return res.Items ?? [];
 }
 
-export async function openIncident(memberId) {
+/**
+ * The escalation ladder times out after six hours, so an incident still marked
+ * open beyond that is not in progress - it is stranded, because its execution
+ * died between rungs.
+ *
+ * This matters more than it looks. The sweep skips any member with an open
+ * incident, so a stranded one makes that member permanently invisible: skipped
+ * every ten minutes, logged at info, reported as success. If the stranded
+ * incident was critical, nothing could ever raise them again. Ageing it out
+ * means the next sweep reopens the case instead of stepping over it forever.
+ */
+const STRANDED_AFTER_MS = 6 * 3600 * 1000;
+
+/** Incidents are worth keeping for a while, but not forever. */
+export const INCIDENT_TTL_DAYS = 120;
+
+/**
+ * Incident ids must sort by time, because every reader of them asks for the
+ * newest few and DynamoDB sorts sort keys lexically. A random UUID here meant
+ * "the five most recent incidents" was really "five arbitrary incidents", so
+ * once a member had more than five in their history the open one could simply
+ * not be found - and a sign of life would then fail to close it.
+ *
+ * Epoch millis are fixed width until well beyond any horizon that matters, and
+ * contain only characters that are also legal in a Step Functions execution
+ * name, which the same id is used for.
+ */
+export const newIncidentId = (now = new Date()) =>
+  `${now.getTime()}-${randomUUID().slice(0, 8)}`;
+
+export async function openIncident(memberId, now = new Date()) {
   const res = await doc.send(
     new QueryCommand({
       TableName: TABLE,
@@ -119,7 +168,14 @@ export async function openIncident(memberId) {
       Limit: 5,
     })
   );
-  return (res.Items ?? []).find((i) => i.status === "open") ?? null;
+
+  return (
+    (res.Items ?? []).find(
+      (i) =>
+        i.status === "open" &&
+        now.getTime() - new Date(i.openedAt).getTime() < STRANDED_AFTER_MS
+    ) ?? null
+  );
 }
 
 export async function setIncidentStatus(memberId, incidentId, status, extra = {}) {

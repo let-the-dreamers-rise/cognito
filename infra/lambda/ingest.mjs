@@ -71,15 +71,20 @@ export async function handler(event) {
   const expiresAt =
     Math.floor(Date.now() / 1000) + SIGNAL_TTL_DAYS * 24 * 3600;
 
+  // A heartbeat's only job is to move lastSeenAt, which the profile update
+  // below already does. Nothing ever reads the rows, and at one every five
+  // minutes they were ninety percent of everything this table stored.
   await Promise.all(
-    accepted.map((signal) =>
-      putItem({
-        pk: `MEM#${memberId}`,
-        sk: `SIG#${signal.at}#${randomUUID().slice(0, 8)}`,
-        ...signal,
-        ttl: expiresAt,
-      })
-    )
+    accepted
+      .filter((signal) => signal.type !== "heartbeat")
+      .map((signal) =>
+        putItem({
+          pk: `MEM#${memberId}`,
+          sk: `SIG#${signal.at}#${randomUUID().slice(0, 8)}`,
+          ...signal,
+          ttl: expiresAt,
+        })
+      )
   );
 
   const waking = accepted.filter(isWakingSignal);

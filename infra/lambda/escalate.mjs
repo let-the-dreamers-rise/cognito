@@ -56,7 +56,7 @@ const RUNGS = {
         ? `She is usually up by ${minutesToClock(member.baseline.firstActivityMedian)}.`
         : "";
 
-    await pushToExpo(
+    const result = await pushToExpo(
       watchers.map((w) => ({
         to: w.pushToken,
         title: describe(severity, member.name),
@@ -70,7 +70,16 @@ const RUNGS = {
         channelId: critical ? "critical" : "default",
       }))
     );
-    return { rung: "notifyChild", watchers: watchers.length, severity };
+
+    // The ladder branches on this. Waiting twenty minutes after telling nobody
+    // is worse than not waiting at all, so a rung that reached zero people
+    // hands straight on to someone who can physically get there.
+    return {
+      rung: "notifyChild",
+      watchers: watchers.length,
+      delivered: result.delivered ?? 0,
+      severity,
+    };
   },
 
   /**
@@ -88,14 +97,27 @@ const RUNGS = {
   },
 };
 
+/**
+ * Only an explicit resolution stands the ladder down.
+ *
+ * This previously asked whether the status was anything other than "open",
+ * which meant a missing item - a stale read, a bad key, a deleted row - read
+ * as "she answered" and the escalation ended having told nobody. An unknown
+ * state must escalate, never reassure. The read is consistent because the
+ * whole point is to observe a write that may have landed seconds ago.
+ */
 async function checkResponded(memberId, incidentId) {
   const res = await doc.send(
     new GetCommand({
       TableName: TABLE,
       Key: { pk: `MEM#${memberId}`, sk: `INC#${incidentId}` },
+      ConsistentRead: true,
     })
   );
-  return { responded: res.Item?.status !== "open", status: res.Item?.status ?? "gone" };
+  return {
+    responded: res.Item?.status === "resolved",
+    status: res.Item?.status ?? "missing",
+  };
 }
 
 export async function handler(event) {
@@ -111,10 +133,19 @@ export async function handler(event) {
     return { rung: "escalated", severity };
   }
 
+  // A rung threw. Close the incident rather than leaving it open forever: an
+  // incident stuck open makes the sweep step over this member every ten
+  // minutes, so a single failed execution would silently retire them.
+  if (action === "failed") {
+    await setIncidentStatus(memberId, incidentId, "failed");
+    console.error("escalation ladder failed", JSON.stringify({ memberId, incidentId }));
+    return { rung: "failed" };
+  }
+
   const rung = RUNGS[action];
   if (!rung) return { error: `unknown rung: ${action}` };
 
   const result = await rung(member, severity);
   await setIncidentStatus(memberId, incidentId, "open", { lastRung: action });
-  return result;
+  return { delivered: 0, ...result };
 }

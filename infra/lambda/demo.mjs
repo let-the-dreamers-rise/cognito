@@ -1,7 +1,14 @@
-import { randomUUID } from "node:crypto";
 import { UpdateCommand } from "@aws-sdk/lib-dynamodb";
 import { SFNClient, StartExecutionCommand } from "@aws-sdk/client-sfn";
-import { doc, TABLE, getMember, putItem, memberKey } from "./shared/db.mjs";
+import {
+  doc,
+  TABLE,
+  getMember,
+  putItem,
+  memberKey,
+  newIncidentId,
+  INCIDENT_TTL_DAYS,
+} from "./shared/db.mjs";
 import { ok, bad, parseBody, bearer } from "./shared/http.mjs";
 import { updateBaseline } from "./shared/baseline.mjs";
 import { describe } from "./shared/severity.mjs";
@@ -73,8 +80,9 @@ async function seedBaseline(member) {
 }
 
 async function forceAnomaly(member, waitSeconds, severity = "late") {
-  const incidentId = randomUUID();
-  const now = new Date().toISOString();
+  const at = new Date();
+  const incidentId = newIncidentId(at);
+  const now = at.toISOString();
 
   await putItem({
     pk: `MEM#${member.memberId}`,
@@ -86,6 +94,7 @@ async function forceAnomaly(member, waitSeconds, severity = "late") {
     reason: describe(severity, member.name),
     openedAt: now,
     demo: true,
+    ttl: Math.floor(at.getTime() / 1000) + INCIDENT_TTL_DAYS * 24 * 3600,
   });
 
   const execution = await sfn.send(
