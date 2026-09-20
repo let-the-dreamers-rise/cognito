@@ -12,7 +12,7 @@ import { router } from 'expo-router';
 import { getPulse, updateSettings } from '../../src/api';
 import type { Session } from '../../src/api';
 import { loadSession } from '../../src/session';
-import { colors, space, type } from '../../src/theme';
+import { colors, fonts, space, type } from '../../src/theme';
 
 export default function ChildSettings() {
   const [session, setSession] = useState<Session | null>(null);
@@ -121,7 +121,12 @@ export default function ChildSettings() {
 const s = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.paper },
   inner: { padding: space.md, maxWidth: 520, width: '100%', alignSelf: 'center' },
-  back: { color: colors.muted, fontSize: 15, paddingVertical: space.xs },
+  back: {
+    color: colors.muted,
+    fontSize: 15,
+    fontFamily: fonts.sans,
+    paddingVertical: space.xs,
+  },
   headline: { marginTop: space.sm, marginBottom: space.lg },
   help: { marginTop: space.xs, marginBottom: space.sm },
   sectionGap: { marginTop: space.lg },
@@ -133,6 +138,7 @@ const s = StyleSheet.create({
     paddingHorizontal: space.md,
     paddingVertical: 15,
     fontSize: 16,
+    fontFamily: fonts.sans,
     color: colors.ink,
   },
   spaced: { marginTop: space.sm },
@@ -143,8 +149,8 @@ const s = StyleSheet.create({
     borderRadius: 14,
     alignItems: 'center',
   },
-  primaryText: { color: colors.paper, fontSize: 16, fontWeight: '600' },
+  primaryText: { color: colors.paper, fontSize: 16, fontFamily: fonts.sansStrong },
   disabled: { opacity: 0.5 },
-  error: { marginTop: space.md, color: '#9B2C2C', fontSize: 14 },
+  error: { marginTop: space.md, color: '#9B2C2C', fontSize: 14, fontFamily: fonts.sans },
   footer: { marginTop: space.lg, marginBottom: space.xl },
 });

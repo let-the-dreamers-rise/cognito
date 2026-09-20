@@ -19,7 +19,8 @@ import {
 } from '../../src/api';
 import type { Pulse, Session, WeekDay } from '../../src/api';
 import { loadSession } from '../../src/session';
-import { colors, space, statusColor, type } from '../../src/theme';
+import { Reveal } from '../../src/Reveal';
+import { colors, fonts, space, statusColor, type } from '../../src/theme';
 
 const POLL_MS = 10_000;
 
@@ -84,6 +85,7 @@ export default function ChildHome() {
     return (
       <SafeAreaView style={[s.screen, s.centre]}>
         <ActivityIndicator color={colors.muted} />
+        <Text style={[type.small, s.loadingNote]}>Looking in on her</Text>
       </SafeAreaView>
     );
   }
@@ -110,9 +112,11 @@ export default function ChildHome() {
 
         {/* On an ordinary day this reassures. When something is wrong it says so
             plainly and takes the screen. */}
-        <Text style={[type.hero, s.headline, pulse?.critical && s.criticalHeadline]}>
-          {error ?? pulse?.concern ?? pulse?.today ?? pulse?.pulse ?? 'No word yet today.'}
-        </Text>
+        <Reveal>
+          <Text style={[type.hero, s.headline, pulse?.critical && s.criticalHeadline]}>
+            {error ?? pulse?.concern ?? pulse?.today ?? pulse?.pulse ?? 'No word yet today.'}
+          </Text>
+        </Reveal>
 
         {(pulse?.today || concerned) && <Text style={[type.body, s.sub]}>{pulse?.pulse}</Text>}
 
@@ -148,7 +152,7 @@ export default function ChildHome() {
           <View style={s.weekBlock}>
             <Text style={type.label}>This week</Text>
             <View style={s.week}>
-              {pulse.week.map((day) => (
+              {pulse.week.map((day, index) => (
                 <Pressable
                   key={day.date}
                   style={s.dayCol}
@@ -161,7 +165,14 @@ export default function ChildHome() {
                       picked?.date === day.date && s.dayBarPicked,
                     ]}
                   />
-                  <Text style={s.dayLabel}>{day.label}</Text>
+                  <Text
+                    style={[
+                      s.dayLabel,
+                      index === pulse.week!.length - 1 && s.dayLabelToday,
+                    ]}
+                  >
+                    {day.label}
+                  </Text>
                 </Pressable>
               ))}
             </View>
@@ -290,6 +301,7 @@ function Fact({ label, value }: { label: string; value: string }) {
 const s = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.paper },
   centre: { alignItems: 'center', justifyContent: 'center' },
+  loadingNote: { marginTop: space.sm },
   inner: {
     padding: space.md,
     paddingTop: space.lg,
@@ -301,7 +313,7 @@ const s = StyleSheet.create({
   headerRight: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
   dot: { width: 10, height: 10, borderRadius: 5 },
   headline: { marginTop: space.md },
-  criticalHeadline: { color: colors.critical, fontWeight: '600' },
+  criticalHeadline: { color: colors.critical, fontFamily: fonts.serifStrong },
   sub: { color: colors.muted, marginTop: space.sm },
 
   actions: {
@@ -325,8 +337,8 @@ const s = StyleSheet.create({
     alignItems: 'center',
   },
   actionPrimary: { backgroundColor: colors.ink, borderColor: colors.ink },
-  actionPrimaryText: { color: colors.paper, fontSize: 16, fontWeight: '600' },
-  actionText: { color: colors.ink, fontSize: 15, fontWeight: '600' },
+  actionPrimaryText: { color: colors.paper, fontSize: 16, fontFamily: fonts.sansStrong },
+  actionText: { color: colors.ink, fontSize: 15, fontFamily: fonts.sansStrong },
   disabled: { opacity: 0.4 },
 
   weekBlock: { marginTop: space.lg, gap: space.sm },
@@ -334,7 +346,8 @@ const s = StyleSheet.create({
   dayCol: { flex: 1, alignItems: 'center', gap: space.xs },
   dayBar: { height: 38, width: '100%', borderRadius: 7 },
   dayBarPicked: { borderWidth: 2, borderColor: colors.ink },
-  dayLabel: { fontSize: 11, color: colors.muted },
+  dayLabel: { fontSize: 11, color: colors.muted, fontFamily: fonts.sansMedium },
+  dayLabelToday: { color: colors.ink, fontFamily: fonts.sansStrong },
   pickedText: { marginTop: space.xs },
 
   learning: {
@@ -354,7 +367,7 @@ const s = StyleSheet.create({
     borderBottomColor: colors.hairline,
     paddingBottom: space.sm,
   },
-  factValue: { fontWeight: '600' },
+  factValue: { fontFamily: fonts.sansMedium },
 
   warning: {
     marginTop: space.lg,
@@ -372,7 +385,7 @@ const s = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.hairline,
   },
-  historyWhat: { fontWeight: '600' },
+  historyWhat: { fontFamily: fonts.sansMedium },
 
   demoToggle: { marginTop: space.xl, paddingVertical: space.sm },
   demoCard: {
@@ -391,7 +404,7 @@ const s = StyleSheet.create({
     paddingVertical: 14,
     alignItems: 'center',
   },
-  demoBtnText: { color: colors.ink, fontSize: 15, fontWeight: '600' },
+  demoBtnText: { color: colors.ink, fontSize: 15, fontFamily: fonts.sansStrong },
   demoBtnCritical: { borderColor: '#F0C9C9', backgroundColor: '#FCEDED' },
   demoBtnCriticalText: { color: '#7A1A1A' },
 });

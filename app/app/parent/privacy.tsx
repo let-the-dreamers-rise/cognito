@@ -4,7 +4,7 @@ import { router } from 'expo-router';
 import { updateSettings } from '../../src/api';
 import { loadSession } from '../../src/session';
 import type { Session } from '../../src/api';
-import { colors, space, type } from '../../src/theme';
+import { colors, fonts, space, type } from '../../src/theme';
 
 /**
  * The refusal list is a feature, not a policy page. An abuser needs precision;
@@ -102,12 +102,17 @@ export default function Privacy() {
 const s = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.paper },
   inner: { padding: space.md, maxWidth: 520, width: '100%', alignSelf: 'center' },
-  back: { color: colors.muted, fontSize: 15, paddingVertical: space.xs },
+  back: {
+    color: colors.muted,
+    fontSize: 15,
+    fontFamily: fonts.sans,
+    paddingVertical: space.xs,
+  },
   headline: { marginTop: space.sm, marginBottom: space.lg },
   item: { marginTop: space.xs },
   sectionGap: { marginTop: space.lg },
   neverRow: { flexDirection: 'row', alignItems: 'flex-start', gap: space.sm, marginTop: space.xs },
-  cross: { color: colors.muted, fontSize: 18, lineHeight: 25 },
+  cross: { color: colors.muted, fontSize: 18, lineHeight: 25, fontFamily: fonts.sans },
   neverText: { color: colors.muted, flex: 1 },
   toggleCard: {
     marginTop: space.lg,

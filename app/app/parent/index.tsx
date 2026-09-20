@@ -14,7 +14,8 @@ import type { FamilyMember, Pulse, Session } from '../../src/api';
 import { loadSession } from '../../src/session';
 import { watchForeground } from '../../src/signals';
 import { onNotificationTap } from '../../src/push';
-import { colors, space, type } from '../../src/theme';
+import { Reveal } from '../../src/Reveal';
+import { colors, fonts, space, type } from '../../src/theme';
 
 const partOfDay = (iso: string) => {
   const hour = new Date(iso).getHours();
@@ -129,15 +130,17 @@ export default function ParentHome() {
           </Link>
         </View>
 
-        <Text style={[type.hero, s.headline]}>{greetingFor(pulse?.family ?? null)}</Text>
+        <Reveal>
+          <Text style={[type.hero, s.headline]}>{greetingFor(pulse?.family ?? null)}</Text>
+        </Reveal>
 
         {/* She reads exactly the sentence her children read. Nothing is
             described about her that she cannot see herself. */}
         {pulse?.today && (
-          <View style={s.mirror}>
+          <Reveal delay={110} style={s.mirror}>
             <Text style={type.label}>What they were told</Text>
             <Text style={[type.body, s.mirrorText]}>{pulse.today}</Text>
-          </View>
+          </Reveal>
         )}
 
         <Pressable style={s.callMe} onPress={() => tap('callme')}>
@@ -231,7 +234,7 @@ const s = StyleSheet.create({
     borderRadius: 20,
     alignItems: 'center',
   },
-  callMeText: { color: colors.paper, fontSize: 22, fontWeight: '600' },
+  callMeText: { color: colors.paper, fontSize: 22, fontFamily: fonts.sansStrong },
   callNote: { textAlign: 'center', marginTop: space.xs },
 
   familyBlock: { marginTop: space.lg, gap: space.sm },
@@ -243,7 +246,7 @@ const s = StyleSheet.create({
     borderBottomColor: colors.hairline,
     paddingBottom: space.sm,
   },
-  familyName: { fontWeight: '600' },
+  familyName: { fontFamily: fonts.sansMedium },
 
   fine: {
     marginTop: space.lg,
@@ -255,7 +258,7 @@ const s = StyleSheet.create({
     alignItems: 'center',
   },
   fineDone: { backgroundColor: '#EAF3EE', borderColor: '#C8E0D3' },
-  fineText: { color: colors.ink, fontSize: 18, fontWeight: '600' },
+  fineText: { color: colors.ink, fontSize: 18, fontFamily: fonts.sansStrong },
   fineTextDone: { color: colors.calm },
 
   awayCard: {
@@ -278,5 +281,5 @@ const s = StyleSheet.create({
     borderColor: colors.hairline,
     gap: space.xs,
   },
-  code: { fontSize: 32, letterSpacing: 8, color: colors.ink, fontWeight: '600' },
+  code: { fontSize: 32, letterSpacing: 8, color: colors.ink, fontFamily: fonts.sansStrong },
 });

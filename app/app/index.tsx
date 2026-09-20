@@ -12,7 +12,8 @@ import { router } from 'expo-router';
 import { enrolParent, enrolWatcher } from '../src/api';
 import { loadSession, saveSession } from '../src/session';
 import { registerForPush } from '../src/push';
-import { colors, space, type } from '../src/theme';
+import { Reveal } from '../src/Reveal';
+import { colors, fonts, space, type } from '../src/theme';
 
 type Mode = 'choose' | 'parent' | 'watcher';
 
@@ -73,17 +74,19 @@ export default function Welcome() {
   return (
     <SafeAreaView style={s.screen}>
       <View style={s.inner}>
-        <Text style={type.label}>Sab Theek</Text>
-        <Text style={[type.hero, s.headline]}>
-          {mode === 'choose'
-            ? 'Knowing today was an ordinary day.'
-            : mode === 'parent'
-              ? 'Your family will only ever see whether your day looked ordinary.'
-              : 'Enter the code they gave you.'}
-        </Text>
+        <Reveal>
+          <Text style={type.label}>Sab Theek</Text>
+          <Text style={[type.hero, s.headline]}>
+            {mode === 'choose'
+              ? 'Knowing today was an ordinary day.'
+              : mode === 'parent'
+                ? 'Your family will only ever see whether your day looked ordinary.'
+                : 'Enter the code they gave you.'}
+          </Text>
+        </Reveal>
 
         {mode === 'choose' && (
-          <View style={s.stack}>
+          <Reveal delay={130} style={s.stack}>
             <Pressable style={s.primary} onPress={() => setMode('parent')}>
               <Text style={s.primaryText}>I live on my own</Text>
             </Pressable>
@@ -94,11 +97,11 @@ export default function Welcome() {
               The person living alone sets this up and hands out the code. Nobody can add
               themselves to someone else{'’'}s account.
             </Text>
-          </View>
+          </Reveal>
         )}
 
         {mode !== 'choose' && (
-          <View style={s.stack}>
+          <Reveal delay={60} style={s.stack}>
             {mode === 'watcher' && (
               <TextInput
                 value={code}
@@ -126,7 +129,7 @@ export default function Welcome() {
             <Pressable onPress={() => setMode('choose')}>
               <Text style={[type.small, s.note]}>Back</Text>
             </Pressable>
-          </View>
+          </Reveal>
         )}
 
         {error && <Text style={s.error}>{error}</Text>}
@@ -146,7 +149,7 @@ const s = StyleSheet.create({
     borderRadius: 14,
     alignItems: 'center',
   },
-  primaryText: { color: colors.paper, fontSize: 16, fontWeight: '600' },
+  primaryText: { color: colors.paper, fontSize: 16, fontFamily: fonts.sansStrong },
   secondary: {
     borderWidth: 1,
     borderColor: colors.hairline,
@@ -155,7 +158,7 @@ const s = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: colors.card,
   },
-  secondaryText: { color: colors.ink, fontSize: 16, fontWeight: '600' },
+  secondaryText: { color: colors.ink, fontSize: 16, fontFamily: fonts.sansStrong },
   input: {
     borderWidth: 1,
     borderColor: colors.hairline,
@@ -164,10 +167,22 @@ const s = StyleSheet.create({
     paddingHorizontal: space.md,
     paddingVertical: 16,
     fontSize: 16,
+    fontFamily: fonts.sans,
     color: colors.ink,
   },
-  codeInput: { letterSpacing: 6, fontSize: 20, textAlign: 'center' },
+  codeInput: {
+    letterSpacing: 6,
+    fontSize: 20,
+    textAlign: 'center',
+    fontFamily: fonts.sansStrong,
+  },
   disabled: { opacity: 0.5 },
   note: { marginTop: space.sm, textAlign: 'center' },
-  error: { marginTop: space.md, color: '#9B2C2C', fontSize: 14, textAlign: 'center' },
+  error: {
+    marginTop: space.md,
+    color: '#9B2C2C',
+    fontSize: 14,
+    fontFamily: fonts.sans,
+    textAlign: 'center',
+  },
 });
