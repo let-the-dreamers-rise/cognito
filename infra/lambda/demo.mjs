@@ -12,6 +12,7 @@ import {
 import { ok, bad, parseBody, bearer } from "./shared/http.mjs";
 import { updateBaseline } from "./shared/baseline.mjs";
 import { describe } from "./shared/severity.mjs";
+import { narrate } from "./shared/narrate.mjs";
 import { localDate } from "./shared/time.mjs";
 
 const sfn = new SFNClient({});
@@ -29,18 +30,45 @@ const SEED_WAKE_MINUTES = [440, 455, 430, 465, 445, 450];
 
 const DAY_MS = 86_400_000;
 
-/** Plausible past days, so the week strip has something true-shaped to show. */
+/**
+ * Plausible past days, so the week strip has something true-shaped to show.
+ * These are fixtures and say so; only today is written live. Seeding a week of
+ * model calls would cost six Bedrock invocations to show the judge one thing.
+ */
 const SEED_DAYS = [
-  { back: 6, narrative: "Amma's day looked normal - up around 7:20, a walk before the heat." },
-  { back: 5, narrative: "Amma's day looked normal - up around 7:35, a trip to the shop." },
-  { back: 4, narrative: "Quiet day - the phone barely moved. Probably nothing.", quiet: true },
-  { back: 3, narrative: "Amma's day looked normal - up around 7:15, 1,100 steps." },
-  { back: 2, narrative: "Amma's day looked normal - up around 7:40, phone on charge by evening." },
-  { back: 1, narrative: "Amma's day looked normal - up around 7:25, a trip to the shop." },
-  // Today, so both sides have the same sentence to show before the nightly
-  // summary has had a chance to run. The real job overwrites this at 21:00.
-  { back: 0, narrative: "Amma's day looked normal - up around 7:30, out to the shop, back by nine." },
+  { back: 6, at: '7:20 am', tail: 'a walk before the heat' },
+  { back: 5, at: '7:35 am', tail: 'a trip to the shop' },
+  { back: 4, quiet: true },
+  { back: 3, at: '7:15 am', tail: '1,100 steps' },
+  { back: 2, at: '7:40 am', tail: 'phone on charge by evening' },
+  { back: 1, at: '7:25 am', tail: 'a trip to the shop' },
 ];
+
+/** The name is hers, not a placeholder. A seeded week that calls everyone Amma reads as broken. */
+const seededNarrative = (day, name) =>
+  day.quiet
+    ? `Quiet day for ${name} - the phone barely moved. Probably nothing.`
+    : `${name}'s day looked normal - up around ${day.at}, ${day.tail}.`;
+
+/**
+ * Today's sentence is written by Bedrock during the demo, not canned. The whole
+ * claim of the product is that a person reads one honest sentence; a judge who
+ * only ever sees fixture text has not seen the product work.
+ */
+async function narrateToday(member) {
+  const summary = {
+    weekday: new Intl.DateTimeFormat('en-IN', { timeZone: member.tz, weekday: 'long' }).format(
+      new Date()
+    ),
+    firstActivityAt: '7:30 am',
+    steps: 1800,
+    transactions: 1,
+    charged: true,
+    lastSeenAt: '9:10 pm',
+  };
+  const { text, source } = await narrate(summary, member.name);
+  return { summary, text, source };
+}
 
 async function seedBaseline(member) {
   const baseline = SEED_WAKE_MINUTES.reduce(
@@ -58,24 +86,36 @@ async function seedBaseline(member) {
   );
 
   const now = Date.now();
-  await Promise.all(
-    SEED_DAYS.map((day) =>
+  const today = await narrateToday(member);
+
+  await Promise.all([
+    ...SEED_DAYS.map((day) =>
       putItem({
         pk: `MEM#${member.memberId}`,
         sk: `DAY#${localDate(new Date(now - day.back * DAY_MS), member.tz)}`,
-        narrative: day.narrative,
-        firstActivityAt: day.quiet ? null : "7:30 am",
+        narrative: seededNarrative(day, member.name),
+        firstActivityAt: day.quiet ? null : day.at,
         steps: day.quiet ? 0 : 900,
         seeded: true,
         createdAt: new Date().toISOString(),
       })
-    )
-  );
+    ),
+    putItem({
+      pk: `MEM#${member.memberId}`,
+      sk: `DAY#${localDate(new Date(now), member.tz)}`,
+      ...today.summary,
+      narrative: today.text,
+      createdAt: new Date().toISOString(),
+    }),
+  ]);
 
   return {
     seeded: baseline.samples.length,
-    days: SEED_DAYS.length,
+    days: SEED_DAYS.length + 1,
     usuallyUpAt: baseline.firstActivityMedian,
+    today: today.text,
+    // Named honestly so a fallback can never pass as the model's work.
+    writtenBy: today.source,
   };
 }
 

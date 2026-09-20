@@ -274,10 +274,19 @@ export class SabTheekStack extends cdk.Stack {
     });
 
     // ---- The API ----------------------------------------------------------
-    const demoFn = makeFn('DemoFn', 'demo.handler', {
-      LADDER_ARN: ladder.stateMachineArn,
-    });
+    // The demo writes today's sentence with Bedrock rather than serving a
+    // fixture, so it needs the model and the time to wait for it. A judge who
+    // only ever sees canned text has not seen the product work.
+    const demoFn = makeFn(
+      'DemoFn',
+      'demo.handler',
+      { LADDER_ARN: ladder.stateMachineArn, BEDROCK_MODEL_ID },
+      30
+    );
     ladder.grantStartExecution(demoFn);
+    demoFn.addToRolePolicy(
+      new iam.PolicyStatement({ actions: ['bedrock:InvokeModel'], resources: ['*'] })
+    );
 
     const api = new apigw.HttpApi(this, 'Api', {
       corsPreflight: {

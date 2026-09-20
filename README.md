@@ -229,6 +229,15 @@ These are real and stated deliberately rather than hidden.
 - **Single region, `us-east-1`, no staging.** `ap-south-1` is right for Indian
   families and for DPDP residency; it would also mean swapping the Nova
   inference profile from the `us.` to the `apac.` prefix.
+- **Bedrock is wired but produces nothing on this account.** The Converse call
+  is real, the IAM grant is real, and the demo seed invokes it live rather than
+  serving fixture text. The account's `Model invocation max tokens per day` quota
+  for Nova Lite reads `0`, and it is not adjustable through Service Quotas, so
+  every call returns `ThrottlingException: Too many tokens per day` and falls
+  through to the deterministic writer. Every sentence you see in this demo was
+  written by that fallback. The API says so in its own response - the seed
+  returns `writtenBy: "bedrock" | "fallback"` - because a product whose thesis
+  is one honest sentence should not let a template pass as a model's work.
 - **Cost is not where you would guess.** Bedrock is about $0.60/month at a
   thousand families. The expense is DynamoDB writes, and most of those rows
   were heartbeats that nothing ever read - which is why heartbeats are no

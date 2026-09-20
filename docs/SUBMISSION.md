@@ -74,7 +74,7 @@ Lead with this line, because it is the architectural point:
 | **EventBridge Rule** | The absence sweep every 10 minutes - the clock the entire system turns on |
 | **EventBridge Scheduler** | The nightly sentence at 21:00, in her own timezone |
 | **Step Functions** | The escalation ladder: wait states, per-execution wait durations, and a Choice at the top that routes critical cases past the polite rungs |
-| **Bedrock** (Amazon Nova Lite) | The daily sentence, with a deterministic template fallback so a day always gets one |
+| **Bedrock** (Amazon Nova Lite) | The daily sentence. See the note below: the call is wired and live, but this account's daily token quota is `0`, so what you will see is the deterministic fallback |
 | **SNS** | SMS to the neighbour, who will not have the app installed |
 | **Amplify Hosting** | The Expo web build - the deployed URL |
 | **CloudWatch** | Logs and metrics |
@@ -85,6 +85,16 @@ Infrastructure is **AWS CDK in TypeScript**, same language as the app.
 Why Nova rather than Anthropic on Bedrock: Anthropic models require a use-case
 form per account, which a judge cloning this repo would hit too. Nova needs no
 form, and one short sentence per person per day does not need a frontier model.
+
+**On Bedrock, plainly.** The Converse call is implemented, granted, and invoked
+live by the demo seed rather than replaced with fixture text. It does not
+produce anything on this account: `Model invocation max tokens per day for
+Amazon Nova Lite` reads `0` and is marked not adjustable, so every call returns
+`ThrottlingException: Too many tokens per day` in every region tried. Rather
+than hide that, the seed endpoint returns `writtenBy: "bedrock" | "fallback"`
+so anyone can see which wrote the sentence. On an account with a token
+allowance this path works unchanged; on this one, the deterministic writer
+produces every sentence in the demo.
 
 ---
 
@@ -152,8 +162,9 @@ claim that does not survive a question.
 
 ## Before you submit - check these are still true
 
-- [ ] _UPDATE BEFORE SUBMITTING_: does the daily sentence come from Bedrock, or
-      is it still the template fallback? Say whichever is true.
+- [x] Does the daily sentence come from Bedrock, or the template fallback?
+      **The fallback.** Account quota is `0` tokens/day and not adjustable.
+      Stated plainly in the README and above; the API reports `writtenBy`.
 - [ ] _UPDATE BEFORE SUBMITTING_: has a push notification actually landed on a
       physical phone? Until it has, do not claim notifications work.
 - [ ] _UPDATE BEFORE SUBMITTING_: has the Android build run on a real device?
