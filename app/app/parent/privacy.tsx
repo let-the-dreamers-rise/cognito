@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Pressable, SafeAreaView, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { router } from 'expo-router';
-import { updateSettings } from '../../src/api';
+import { getPulse, updateSettings } from '../../src/api';
 import { loadSession } from '../../src/session';
 import type { Session } from '../../src/api';
 import { colors, fonts, space, type } from '../../src/theme';
@@ -30,13 +30,27 @@ export default function Privacy() {
   const [session, setSession] = useState<Session | null>(null);
   const [sharing, setSharing] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [practice, setPractice] = useState(false);
 
   useEffect(() => {
     loadSession().then((s) => {
       if (!s) return router.replace('/');
       setSession(s);
+      getPulse(s.memberId, s.deviceToken)
+        .then((p) => setPractice(Boolean(p.demo)))
+        .catch(() => {});
     });
   }, []);
+
+  const togglePractice = async (next: boolean) => {
+    if (!session) return;
+    setPractice(next);
+    try {
+      await updateSettings(session.memberId, session.deviceToken, { demo: next });
+    } catch {
+      setPractice(!next);
+    }
+  };
 
   const toggle = async (next: boolean) => {
     if (!session) return;
@@ -88,6 +102,23 @@ export default function Privacy() {
           <Text style={type.small}>
             You can turn this off whenever you like and nobody has to approve it. Your family is
             simply told that you paused sharing.
+          </Text>
+        </View>
+
+        {/* A safety net nobody has ever tested is a belief, not a safety net. */}
+        <View style={s.toggleCard}>
+          <View style={s.toggleRow}>
+            <Text style={type.title}>Allow practice alerts</Text>
+            <Switch
+              value={practice}
+              onValueChange={togglePractice}
+              trackColor={{ true: colors.calm, false: colors.hairline }}
+            />
+          </View>
+          <Text style={type.small}>
+            Lets your family run a practice, so you both find out this works before the day it
+            matters rather than on it. A practice behaves exactly like the real thing, including
+            the message to your local contact.
           </Text>
         </View>
 

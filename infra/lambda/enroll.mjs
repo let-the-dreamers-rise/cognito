@@ -121,7 +121,13 @@ const SELF_FIELDS = [
   "name",
   "tz",
   "phone",
+  // Hers alone. A watcher can never switch practice alerts on for someone
+  // else, because a practice behaves exactly like the real thing.
+  "demo",
 ];
+
+/** Some fields must not take whatever shape the client felt like sending. */
+const COERCE = { demo: Boolean, enabled: Boolean };
 
 /**
  * A watcher may register the neighbour and her number, because they are usually
@@ -146,7 +152,7 @@ async function updateSettings(event, body) {
       UpdateExpression: `SET ${updates.map((k) => `#${k} = :${k}`).join(", ")}`,
       ExpressionAttributeNames: Object.fromEntries(updates.map((k) => [`#${k}`, k])),
       ExpressionAttributeValues: Object.fromEntries(
-        updates.map((k) => [`:${k}`, body[k]])
+        updates.map((k) => [`:${k}`, COERCE[k] ? COERCE[k](body[k]) : body[k]])
       ),
       ReturnValues: "ALL_NEW",
     })
