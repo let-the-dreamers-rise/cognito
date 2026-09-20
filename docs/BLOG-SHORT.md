@@ -13,9 +13,9 @@ got up yet."*
 
 You can't. There is no event. Nothing fires. The condition I care about is
 defined by the **absence** of a message, and an event-driven system has nothing
-to hang a handler on. Absence detection isn't a handler problem, it's a
-scheduling problem. An EventBridge rule sweeps every ten minutes and asks one
-question per person. The heart of the system is a clock, not a listener.
+to hang a handler on. Absence isn't a handler problem, it's a scheduling
+problem. An EventBridge rule sweeps every ten minutes and asks one question per
+person. The heart of the system is a clock, not a listener.
 
 **Two clocks, not one.** I first compared "last signal of any kind" against a
 threshold. Dangerously wrong. A phone that's switched off has an ordinary
@@ -24,10 +24,10 @@ no human has touched it does not — and my single clock couldn't see it, becaus
 the phone was checking in the whole time. So: `lastSeenAt` (the phone is alive)
 and `lastWakingAt` (someone is there).
 
-**The Step Functions trick I'd reuse anywhere.** When the sweep finds something,
-it starts a ladder: ask *her* first, twice, before anyone else learns there was
-a question — most mornings it ends there and the family never knows. The wait
-between rungs is an input to the execution, not baked in:
+**A Step Functions trick.** When the sweep finds something it starts a ladder:
+ask *her* first, twice, before anyone else learns there was a question — most
+mornings it ends there and the family never knows. The wait between rungs is an
+input to the execution, not baked in:
 
 ```ts
 time: sfn.WaitTime.secondsPath('$.waitSeconds')
@@ -46,9 +46,9 @@ forever. `??` where I needed `||`, so a blank clock read as `Infinity` hours
 and raised the loudest alarm on the quietest person. A permission nothing ever
 requested. A background task never registered.
 
-The lesson: build systems that report their own uncertainty. The ladder now
-reads delivery receipts instead of trusting a 200, and branches to a neighbour
-when a rung reached nobody.
+The lesson: make systems report their own uncertainty. The ladder now reads
+delivery receipts instead of trusting a 200, and branches to a neighbour when a
+rung reached nobody.
 
 **Honestly:** Bedrock writes that sentence and the Converse call is live, but
 my account's daily token quota is 0 and not adjustable, so a deterministic
