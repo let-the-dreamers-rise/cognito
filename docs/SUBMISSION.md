@@ -18,7 +18,7 @@ few hours. Do not soften those into claims that are not true yet.
 
 - GitHub: https://github.com/let-the-dreamers-rise/cognito
 - Deployed (web): https://main.d2qgbxnzjs5xxe.amplifyapp.com
-- Android APK: https://expo.dev/artifacts/eas/7UMydpHGzKhFd0-XnUTD-yL80TAZFXCUAh8CAOO4yTo.apk
+- Android APK: https://expo.dev/artifacts/eas/F7Gj5QdMIMU_uN6qxR7gdrvD4JfhhQ2Ev9VjresiqoY.apk
 - Demo video: _UPDATE BEFORE SUBMITTING_
 
 **To look around without enrolling anyone:** choose *"Someone I love does"* and
