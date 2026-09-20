@@ -17,6 +17,7 @@ import {
   expectedByMinutes,
   firstWakingSignal,
   isLearning,
+  stepsToday,
   MIN_SAMPLES,
 } from "./shared/baseline.mjs";
 import { describe, isCritical } from "./shared/severity.mjs";
@@ -133,9 +134,7 @@ export async function handler(event) {
     })
   );
 
-  const steps = signals
-    .filter((s) => s.type === "steps")
-    .reduce((sum, s) => sum + (s.steps ?? 0), 0);
+  const steps = stepsToday(signals);
 
   const expectedBy = expectedByMinutes(member.baseline);
   const [days, incidents] = await Promise.all([

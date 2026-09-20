@@ -30,12 +30,22 @@ const ACCEPTED = new Set([
   "callme",
 ]);
 
-const sanitise = (signal) => ({
-  type: signal.type,
-  at: signal.at ?? new Date().toISOString(),
-  // steps is the only numeric detail we keep, and only as a daily count.
-  steps: signal.type === "steps" ? Number(signal.steps ?? 0) : undefined,
-});
+/**
+ * Device clocks drift, and a timestamp in the future is not a harmless quirk
+ * here: lastWakingAt ahead of now makes every elapsed-hours calculation
+ * negative, so no severity ever fires again and the member goes permanently
+ * unwatched. Clamp rather than reject, because a skewed clock is still a
+ * phone someone is using.
+ */
+const sanitise = (signal, nowIso) => {
+  const claimed = signal.at ?? nowIso;
+  return {
+    type: signal.type,
+    at: claimed > nowIso ? nowIso : claimed,
+    // steps is the only numeric detail we keep, and only as a running day total.
+    steps: signal.type === "steps" ? Number(signal.steps ?? 0) : undefined,
+  };
+};
 
 export async function handler(event) {
   const body = parseBody(event);
@@ -50,9 +60,10 @@ export async function handler(event) {
   if (!member) return bad(404, "unknown member");
   if (member.deviceToken !== bearer(event)) return bad(403, "bad device token");
 
+  const nowIso = new Date().toISOString();
   const accepted = signals
     .filter((s) => ACCEPTED.has(s?.type))
-    .map(sanitise)
+    .map((s) => sanitise(s, nowIso))
     .slice(0, 100);
 
   if (accepted.length === 0) return ok({ stored: 0 });

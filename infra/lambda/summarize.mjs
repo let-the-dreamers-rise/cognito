@@ -18,7 +18,12 @@ import {
   localDate,
   formatLocalTime,
 } from "./shared/time.mjs";
-import { firstWakingSignal, updateBaseline, isLearning } from "./shared/baseline.mjs";
+import {
+  firstWakingSignal,
+  updateBaseline,
+  isLearning,
+  stepsToday,
+} from "./shared/baseline.mjs";
 
 const bedrock = new BedrockRuntimeClient({});
 const MODEL_ID = process.env.BEDROCK_MODEL_ID;
@@ -78,13 +83,13 @@ async function narrate(summary, name) {
 async function summariseMember(member) {
   const now = new Date();
   const tz = member.tz;
-  const signals = await recentSignals(member.memberId, startOfLocalDay(now, tz), 500);
+  const signals = await recentSignals(member.memberId, startOfLocalDay(now, tz));
   const first = firstWakingSignal(signals, tz);
 
   const summary = {
     weekday: new Intl.DateTimeFormat("en-IN", { timeZone: tz, weekday: "long" }).format(now),
     firstActivityAt: first ? formatLocalTime(first.at, tz) : null,
-    steps: signals.filter((s) => s.type === "steps").reduce((n, s) => n + (s.steps ?? 0), 0),
+    steps: stepsToday(signals),
     transactions: signals.filter((s) => s.type === "transaction").length,
     charged: signals.some((s) => s.type === "charging"),
     lastSeenAt: member.lastSeenAt ? formatLocalTime(member.lastSeenAt, tz) : null,

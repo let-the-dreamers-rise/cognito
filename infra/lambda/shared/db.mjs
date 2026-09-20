@@ -44,8 +44,16 @@ export async function listParents() {
   return (res.Items ?? []).filter((m) => m.role === "parent" && m.enabled !== false);
 }
 
-/** Signals for one member, newest first. */
-export async function recentSignals(memberId, sinceIso, limit = 200) {
+/**
+ * Signals for one member since an instant, OLDEST FIRST.
+ *
+ * The order matters more than it looks. Every caller ultimately wants the first
+ * waking signal of the day, and a newest-first query with a limit returns the
+ * earliest of the most recent N - which is a different day's worth of meaning.
+ * At one heartbeat every five minutes a day is roughly 600 rows, so the limit
+ * is set above a full day rather than near it.
+ */
+export async function recentSignals(memberId, sinceIso, limit = 1200) {
   const res = await doc.send(
     new QueryCommand({
       TableName: TABLE,
@@ -55,12 +63,13 @@ export async function recentSignals(memberId, sinceIso, limit = 200) {
         ":from": `SIG#${sinceIso}`,
         ":to": "SIG#9999",
       },
-      ScanIndexForward: false,
+      ScanIndexForward: true,
       Limit: limit,
     })
   );
   return res.Items ?? [];
 }
+
 
 /** The last few daily verdicts, newest first. Used for the week at a glance. */
 export async function recentDays(memberId, limit = 7) {

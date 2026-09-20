@@ -53,6 +53,17 @@ export function expectedByMinutes(baseline, graceMinutes = DEFAULT_GRACE_MINUTES
   return baseline.firstActivityMedian + graceMinutes;
 }
 
+/**
+ * The device reports steps as a running total since midnight, so the day's
+ * count is the largest reading, never the sum of them. Summing a total that is
+ * resent every five minutes turns a walk to the shop into six figures.
+ */
+export function stepsToday(signals) {
+  return signals
+    .filter((s) => s.type === "steps")
+    .reduce((most, s) => Math.max(most, s.steps ?? 0), 0);
+}
+
 export function firstWakingSignal(signals, tz) {
   const waking = signals
     .filter(isWakingSignal)

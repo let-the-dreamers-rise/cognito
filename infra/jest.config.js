@@ -3,7 +3,9 @@ module.exports = {
   roots: ['<rootDir>/test'],
   testMatch: ['**/*.test.ts'],
   transform: {
-    '^.+\\.tsx?$': ['@swc/jest']
+    // The Lambda handlers are ESM .mjs; swc compiles them for the test runner.
+    '^.+\\.(t|j|mj)sx?$': ['@swc/jest'],
   },
-  setupFilesAfterEnv: ['aws-cdk-lib/testhelpers/jest-autoclean'],
+  moduleFileExtensions: ['ts', 'tsx', 'mjs', 'js', 'json'],
+  transformIgnorePatterns: [],
 };

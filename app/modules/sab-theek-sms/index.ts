@@ -1,4 +1,4 @@
-import { NativeModulesProxy } from 'expo-modules-core';
+import { requireOptionalNativeModule } from 'expo-modules-core';
 import { Platform } from 'react-native';
 
 type SabTheekSmsModule = {
@@ -8,8 +8,13 @@ type SabTheekSmsModule = {
   getTransactionTimestamps(sinceEpochMs: number): Promise<number[]>;
 };
 
-const native = (NativeModulesProxy as Record<string, unknown>)
-  .SabTheekSms as SabTheekSmsModule | undefined;
+/**
+ * NativeModulesProxy is deprecated and does not resolve under the new
+ * architecture, which this app enables. It returned undefined, isAvailable()
+ * reported false, and the collector's catch swallowed it - so the signal could
+ * appear to work while never once firing.
+ */
+const native = requireOptionalNativeModule<SabTheekSmsModule>('SabTheekSms');
 
 export const isAvailable = () => Platform.OS === 'android' && native != null;
 
